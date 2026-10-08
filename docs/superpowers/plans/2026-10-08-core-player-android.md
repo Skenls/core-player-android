@@ -196,26 +196,26 @@ git commit -m "feat: implement floating mini-player capsule and Now Playing with
 - Consumes: All repositories, UI components, Navigation Compose
 - Produces: Complete working Android application
 
-- [ ] **Step 1: Implement `HomeViewModel`**
+- [x] **Step 1: Implement `HomeViewModel`**
 
 Fetch artists, favorite tracks, and playlists from `LibraryRepository`, expose `HomeUiState(artists, favorites, playlists, isLoading, error)`.
 
-- [ ] **Step 2: Implement `HomeScreen` exactly matching mockup**
+- [x] **Step 2: Implement `HomeScreen` exactly matching mockup**
 
 - Header: bold "core" logo
 - "Недавние артисты": `LazyRow` of `ArtistCard`
 - "Избранное >": `FavoritesBanner`
 - "Плейлисты >": `LazyRow` of `PlaylistCard`
 
-- [ ] **Step 3: Implement `LoginScreen`, `SearchScreen`, `LibraryScreen`**
+- [x] **Step 3: Implement `LoginScreen`, `SearchScreen`, `LibraryScreen`**
 
 Login screen for setting server URL and credentials; Search screen for searching library; Library screen for browsing albums and tracks.
 
-- [ ] **Step 4: Implement `AppNavigation`, `MainActivity`, and `CorePlayerApp`**
+- [x] **Step 4: Implement `AppNavigation`, `MainActivity`, and `CorePlayerApp`**
 
 Compose scaffold with bottom navigation bar and floating mini-player container.
 
-- [ ] **Step 5: Run unit tests and assemble debug APK**
+- [x] **Step 5: Run unit tests and assemble debug APK**
 
 Run:
 ```bash
@@ -224,7 +224,7 @@ Run:
 ```
 Verify APK generation at `app/build/outputs/apk/debug/app-debug.apk`.
 
-- [ ] **Step 6: Commit complete application**
+- [x] **Step 6: Commit complete application**
 
 ```bash
 git add app/src/main/java/com/coreplayer/app/
