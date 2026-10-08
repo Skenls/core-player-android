@@ -25,4 +25,14 @@ class LibraryRepository(
         api.toggleFavorite(FavoriteToggleRequest(id = itemId, type = itemType))
 
     suspend fun getFavoriteTracks(): List<TrackDto> = api.getFavoriteTracks()
+
+    suspend fun search(query: String): List<TrackDto> {
+        if (query.isBlank()) return emptyList()
+        val favorites = try { getFavoriteTracks() } catch (_: Exception) { emptyList() }
+        return favorites.filter {
+            it.title.contains(query, ignoreCase = true) ||
+            it.artist.contains(query, ignoreCase = true) ||
+            it.album.contains(query, ignoreCase = true)
+        }
+    }
 }
