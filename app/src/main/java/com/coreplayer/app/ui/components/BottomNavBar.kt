@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LibraryMusic
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
@@ -27,16 +27,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.coreplayer.app.ui.theme.BottomBarBackground
-import com.coreplayer.app.ui.theme.BottomNavLabelStyle
-import com.coreplayer.app.ui.theme.SubtleDivider
-import com.coreplayer.app.ui.theme.TextPrimary
-import com.coreplayer.app.ui.theme.TextSecondary
+import androidx.compose.ui.unit.sp
+import com.coreplayer.app.ui.theme.CorePlayerTheme
 
 /**
- * Bottom navigation destinations.
+ * Bottom navigation destinations matching helpers/ mockup.
  */
 sealed class BottomNavItem(
     val route: String,
@@ -73,8 +72,8 @@ sealed class BottomNavItem(
 /**
  * Bottom navigation bar strictly matching the mockup.
  *
- * Has 3 items (Home, Search, Library), dark background (#0D121D),
- * subtle top divider line (#1E2638), and high contrast active/inactive states.
+ * Has 3 items (Home, Search, Library), dark obsidian background (#080C14),
+ * seamless gradient transition, and crisp active/inactive colors.
  */
 @Composable
 fun BottomNavBar(
@@ -82,29 +81,23 @@ fun BottomNavBar(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(BottomBarBackground)
+            .background(Color(0xFF080C14))
             .navigationBarsPadding()
     ) {
-        // Subtle divider separating content/mini player from bottom bar
-        HorizontalDivider(
-            thickness = 0.5.dp,
-            color = SubtleDivider
-        )
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
+                .height(60.dp)
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
             BottomNavItem.items.forEach { item ->
                 val selected = currentRoute == item.route
-                val contentColor = if (selected) TextPrimary else TextSecondary
+                val contentColor = if (selected) Color.White else Color(0xFF8E95A5)
                 val icon = if (selected) item.selectedIcon else item.icon
 
                 Column(
@@ -115,7 +108,7 @@ fun BottomNavBar(
                             indication = ripple(bounded = false, radius = 28.dp),
                             onClick = { onNavigate(item.route) }
                         )
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -125,11 +118,12 @@ fun BottomNavBar(
                         tint = contentColor,
                         modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = item.label,
-                        style = BottomNavLabelStyle,
-                        color = contentColor
+                        color = contentColor,
+                        fontSize = 11.sp,
+                        fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal
                     )
                 }
             }
@@ -140,11 +134,10 @@ fun BottomNavBar(
 @androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0B0F17)
 @Composable
 private fun BottomNavBarPreview() {
-    com.coreplayer.app.ui.theme.CorePlayerTheme {
+    CorePlayerTheme {
         BottomNavBar(
             currentRoute = BottomNavItem.Home.route,
             onNavigate = {}
         )
     }
 }
-

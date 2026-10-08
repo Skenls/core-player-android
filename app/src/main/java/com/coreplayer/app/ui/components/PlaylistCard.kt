@@ -13,32 +13,35 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.coreplayer.app.ui.theme.CardSubtitleStyle
-import com.coreplayer.app.ui.theme.CardTitleStyle
-import com.coreplayer.app.ui.theme.DarkSurfaceVariant
+import com.coreplayer.app.data.model.PlaylistDto
+import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.TextPrimary
-import com.coreplayer.app.ui.theme.TextSecondary
-import com.coreplayer.app.ui.theme.TranslucentPlayButton
+import com.coreplayer.app.ui.util.getPlaylistGradient
 
 /**
- * Playlist card matching the "Плейлисты" section in the mockup.
+ * Playlist card strictly matching the "Плейлисты" section in helpers/ mockup.
  *
- * Displays a 16dp rounded square cover image, a translucent circular play button
- * in the bottom-left corner of the cover, title, and subtitle ("Плейлист · N треков").
+ * Displays a 22dp rounded cover image (or curated artistic gradient),
+ * a translucent circular play button in the bottom-left corner of the cover,
+ * title, and subtitle ("Плейлист · N треков").
  */
 @Composable
 fun PlaylistCard(
@@ -47,71 +50,67 @@ fun PlaylistCard(
     coverUrl: String?,
     modifier: Modifier = Modifier,
     cardSize: Dp = 140.dp,
+    customGradient: Brush? = null,
     onClick: () -> Unit = {},
     onPlayClick: () -> Unit = onClick
 ) {
+    val cornerShape = RoundedCornerShape(22.dp)
+    val fallbackGradient = customGradient ?: remember(title) {
+        getPlaylistGradient(PlaylistDto(id = title, name = title))
+    }
+
     Column(
         modifier = modifier
             .width(cardSize)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(cornerShape)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.Start
     ) {
-        // Cover container with 16dp rounded corners and overlay play button
+        // Cover container with 22dp rounded corners and translucent play button
         Box(
             modifier = Modifier
                 .size(cardSize)
-                .clip(RoundedCornerShape(16.dp))
-                .background(DarkSurfaceVariant)
+                .clip(cornerShape)
+                .background(fallbackGradient)
         ) {
-            if (coverUrl.isNullOrBlank()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Album,
-                        contentDescription = title,
-                        tint = TextSecondary,
-                        modifier = Modifier.size(52.dp)
-                    )
-                }
-            } else {
+            if (!coverUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = coverUrl,
                     contentDescription = title,
                     contentScale = ContentScale.Crop,
-                    placeholder = rememberVectorPainter(Icons.Filled.Album),
-                    error = rememberVectorPainter(Icons.Filled.Album),
                     modifier = Modifier.fillMaxSize()
                 )
             }
 
-            // Translucent circular play button in bottom-left corner
+            // Translucent circular play button in bottom-left corner matching mockup
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(8.dp)
-                    .size(34.dp)
+                    .padding(10.dp)
+                    .size(36.dp)
                     .clip(CircleShape)
-                    .background(TranslucentPlayButton)
+                    .background(Color.Black.copy(alpha = 0.55f))
                     .clickable(onClick = onPlayClick),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Play $title",
-                    tint = TextPrimary,
-                    modifier = Modifier.size(20.dp)
+                    contentDescription = "Воспроизвести $title",
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .padding(start = 2.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Text(
             text = title,
-            style = CardTitleStyle,
+            color = TextPrimary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -120,7 +119,9 @@ fun PlaylistCard(
 
         Text(
             text = subtitle,
-            style = CardSubtitleStyle,
+            color = Color(0xFF8E95A5),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -137,24 +138,67 @@ fun PlaylistCard(
     coverUrl: String?,
     modifier: Modifier = Modifier,
     cardSize: Dp = 140.dp,
+    customGradient: Brush? = null,
     onClick: () -> Unit = {},
     onPlayClick: () -> Unit = onClick
 ) {
+    val subtitleText = "Плейлист · $trackCount ${getTrackWordEnding(trackCount)}"
     PlaylistCard(
         title = title,
-        subtitle = formatTracksCount(trackCount),
+        subtitle = subtitleText,
         coverUrl = coverUrl,
         modifier = modifier,
         cardSize = cardSize,
+        customGradient = customGradient,
         onClick = onClick,
         onPlayClick = onPlayClick
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0B0F17)
+/**
+ * Overload of [PlaylistCard] accepting [PlaylistDto].
+ */
+@Composable
+fun PlaylistCard(
+    playlist: PlaylistDto,
+    coverUrl: String?,
+    modifier: Modifier = Modifier,
+    cardSize: Dp = 140.dp,
+    onClick: () -> Unit = {},
+    onPlayClick: () -> Unit = onClick
+) {
+    val gradient = remember(playlist.name) { getPlaylistGradient(playlist) }
+    PlaylistCard(
+        title = playlist.name,
+        trackCount = playlist.songCount,
+        coverUrl = coverUrl,
+        modifier = modifier,
+        cardSize = cardSize,
+        customGradient = gradient,
+        onClick = onClick,
+        onPlayClick = onPlayClick
+    )
+}
+
+fun formatTracksCount(count: Int): String {
+    return "Плейлист · $count ${getTrackWordEnding(count)}"
+}
+
+fun getTrackWordEnding(count: Int): String {
+    val mod100 = count % 100
+    val mod10 = count % 10
+    return when {
+        mod100 in 11..19 -> "треков"
+        mod10 == 1 -> "трек"
+        mod10 in 2..4 -> "трека"
+        else -> "треков"
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0B0F17)
 @Composable
 private fun PlaylistCardPreview() {
-    com.coreplayer.app.ui.theme.CorePlayerTheme {
+    CorePlayerTheme {
         PlaylistCard(
             title = "Вечерний вайб",
             trackCount = 57,
@@ -162,4 +206,3 @@ private fun PlaylistCardPreview() {
         )
     }
 }
-

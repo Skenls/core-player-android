@@ -32,8 +32,11 @@ data class ArtistDto(
     @Json(name = "id") val id: String,
     @Json(name = "name") val name: String,
     @Json(name = "coverArt") val coverArt: String? = null,
+    @Json(name = "artistImageUrl") val artistImageUrl: String? = null,
     @Json(name = "albumCount") val albumCount: Int = 0
-)
+) {
+    val effectiveCoverArt: String get() = coverArt ?: artistImageUrl ?: id
+}
 
 data class AlbumDto(
     @Json(name = "id") val id: String,

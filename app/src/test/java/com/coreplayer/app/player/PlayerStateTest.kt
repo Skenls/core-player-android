@@ -97,7 +97,7 @@ class PlayerStateTest {
         val mediaItem = track.toMediaItem(baseUrl)
 
         assertEquals("track-123", mediaItem.mediaId)
-        val expectedStreamUri = "http://192.168.1.50:8000/api/stream/track-123?format=mp3"
+        val expectedStreamUri = "http://192.168.1.50:8000/api/stream/track-123"
         assertEquals(expectedStreamUri, mediaItem.localConfiguration?.uri?.toString())
         assertEquals("Bohemian Rhapsody", mediaItem.mediaMetadata.title?.toString())
         assertEquals("Queen", mediaItem.mediaMetadata.artist?.toString())

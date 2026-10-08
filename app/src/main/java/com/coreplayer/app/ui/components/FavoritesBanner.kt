@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,33 +23,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.coreplayer.app.ui.theme.BannerSubtitleStyle
-import com.coreplayer.app.ui.theme.BannerTitleStyle
+import com.coreplayer.app.ui.theme.CorePlayerTheme
+import com.coreplayer.app.ui.util.FavoritesSunsetMountainGradient
 
 /**
- * Pluralization helper for tracks count in Russian ("1 трек", "2 трека", "5 треков").
- */
-fun formatTracksCount(count: Int): String {
-    val mod10 = count % 10
-    val mod100 = count % 100
-    val word = when {
-        mod100 in 11..19 -> "треков"
-        mod10 == 1 -> "трек"
-        mod10 in 2..4 -> "трека"
-        else -> "треков"
-    }
-    return "Плейлист · $count $word"
-}
-
-/**
- * Wide landscape banner for the "Избранное" section matching the mockup.
+ * Landscape banner for the "Избранное / Мои треки" section in helpers/ mockup.
  *
- * Displays a 20dp rounded landscape banner with dusk gradient/image,
- * favorite heart icon in top-right, and "Мои треки" with subtitle at bottom-left.
+ * Displays a 24dp rounded landscape card with sunset mountain gradient,
+ * "Мои треки" title, tracks count, and an outlined white heart icon in the top-right corner.
  */
 @Composable
 fun FavoritesBanner(
@@ -63,20 +50,12 @@ fun FavoritesBanner(
     onClick: () -> Unit = {},
     onFavoriteClick: () -> Unit = onClick
 ) {
-    val landscapeFallbackGradient = Brush.linearGradient(
+    val cardShape = RoundedCornerShape(24.dp)
+    val softOverlayGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF282D46),
-            Color(0xFF533B5F),
-            Color(0xFF3B2B47),
-            Color(0xFF131A26)
-        )
-    )
-
-    val scrimGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0x33000000),
-            Color(0x660B0F17),
-            Color(0xCC0B0F17)
+            Color(0x10000000),
+            Color(0x280B0F17),
+            Color(0x990B0F17)
         )
     )
 
@@ -84,8 +63,8 @@ fun FavoritesBanner(
         modifier = modifier
             .fillMaxWidth()
             .height(bannerHeight)
-            .clip(RoundedCornerShape(20.dp))
-            .background(landscapeFallbackGradient)
+            .clip(cardShape)
+            .background(FavoritesSunsetMountainGradient)
             .clickable(onClick = onClick)
     ) {
         if (!imageUrl.isNullOrBlank()) {
@@ -97,23 +76,23 @@ fun FavoritesBanner(
             )
         }
 
-        // Dark scrim overlay for high readability
+        // Soft gradient overlay for text legibility without washing out colors
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(scrimGradient)
+                .background(softOverlayGradient)
         )
 
-        // Heart icon in top-right corner
+        // Heart icon in top-right corner (clean white outlined heart matching mockup)
         IconButton(
             onClick = onFavoriteClick,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(8.dp)
+                .padding(10.dp)
         ) {
             Icon(
-                imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                contentDescription = "Favorite",
+                imageVector = Icons.Outlined.FavoriteBorder,
+                contentDescription = "Избранное",
                 tint = Color.White,
                 modifier = Modifier.size(26.dp)
             )
@@ -123,18 +102,22 @@ fun FavoritesBanner(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = 16.dp, end = 56.dp)
+                .padding(start = 20.dp, bottom = 18.dp, end = 60.dp)
         ) {
             Text(
                 text = title,
-                style = BannerTitleStyle,
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = subtitle,
-                style = BannerSubtitleStyle,
+                color = Color(0xFFD1D5DB),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -143,41 +126,37 @@ fun FavoritesBanner(
 }
 
 /**
- * Overload of [FavoritesBanner] accepting numeric trackCount.
+ * Overload helper formatting track count dynamically.
  */
 @Composable
 fun FavoritesBanner(
     trackCount: Int,
+    imageUrl: String?,
     modifier: Modifier = Modifier,
-    title: String = "Мои треки",
-    imageUrl: String? = null,
     isFavorite: Boolean = true,
-    bannerHeight: Dp = 140.dp,
     onClick: () -> Unit = {},
     onFavoriteClick: () -> Unit = onClick
 ) {
+    val subtitleText = "Плейлист · $trackCount ${getTrackWordEnding(trackCount)}"
     FavoritesBanner(
         modifier = modifier,
-        title = title,
-        subtitle = formatTracksCount(trackCount),
+        title = "Мои треки",
+        subtitle = subtitleText,
         imageUrl = imageUrl,
         isFavorite = isFavorite,
-        bannerHeight = bannerHeight,
         onClick = onClick,
         onFavoriteClick = onFavoriteClick
     )
 }
 
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0B0F17)
+@Preview(showBackground = true, backgroundColor = 0xFF0B0F17)
 @Composable
 private fun FavoritesBannerPreview() {
-    com.coreplayer.app.ui.theme.CorePlayerTheme {
+    CorePlayerTheme {
         FavoritesBanner(
-            title = "Мои треки",
             trackCount = 124,
             imageUrl = null,
-            isFavorite = true
+            modifier = Modifier.padding(16.dp)
         )
     }
 }
-

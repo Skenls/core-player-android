@@ -237,8 +237,7 @@ fun LibraryScreenContent(
                             ) {
                                 items(playlists, key = { it.id }) { playlist ->
                                     PlaylistCard(
-                                        title = playlist.name,
-                                        subtitle = formatTracksCount(playlist.songCount),
+                                        playlist = playlist,
                                         coverUrl = resolveCoverUrl(playlist.coverArt, baseUrl),
                                         cardSize = 160.dp,
                                         onClick = { onPlaylistClick(playlist) },

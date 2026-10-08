@@ -84,14 +84,10 @@ import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
 
 /**
- * Resolves the artwork URL against the server base URL if needed.
+ * Resolves the artwork URL against the server base URL using ImageUtils.
  */
 fun resolveCoverUrl(rawUrl: String?, baseUrl: String = ""): String? {
-    if (rawUrl.isNullOrBlank()) return null
-    if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) return rawUrl
-    val cleanBase = baseUrl.trimEnd('/')
-    val cleanPath = if (rawUrl.startsWith("/")) rawUrl else "/$rawUrl"
-    return if (cleanBase.isNotEmpty()) "$cleanBase$cleanPath" else rawUrl
+    return com.coreplayer.app.ui.util.resolveCoverUrl(rawUrl, baseUrl, size = 600)
 }
 
 /**

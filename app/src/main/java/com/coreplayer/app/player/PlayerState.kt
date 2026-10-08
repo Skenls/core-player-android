@@ -56,14 +56,16 @@ data class PlayerState(
 
 fun TrackDto.toMediaItem(baseUrl: String): MediaItem {
     val cleanBaseUrl = baseUrl.trimEnd('/')
-    val streamUri = "$cleanBaseUrl/api/stream/$id?format=mp3"
+    val streamUri = "$cleanBaseUrl/api/stream/$id"
 
     val artworkUriString = coverArt?.let { art ->
         if (art.startsWith("http://") || art.startsWith("https://")) {
             art
+        } else if (art.startsWith("/api/")) {
+            "$cleanBaseUrl$art"
         } else {
-            val cleanPath = if (art.startsWith("/")) art else "/$art"
-            "$cleanBaseUrl$cleanPath"
+            val cleanId = art.trimStart('/')
+            "$cleanBaseUrl/api/stream/cover/$cleanId?size=512"
         }
     }
 

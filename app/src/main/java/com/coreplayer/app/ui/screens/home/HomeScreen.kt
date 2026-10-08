@@ -48,7 +48,8 @@ import com.coreplayer.app.player.PlayerControllerManager
 import com.coreplayer.app.ui.components.ArtistCard
 import com.coreplayer.app.ui.components.FavoritesBanner
 import com.coreplayer.app.ui.components.PlaylistCard
-import com.coreplayer.app.ui.screens.nowplaying.resolveCoverUrl
+import com.coreplayer.app.ui.util.resolveArtistImageUrl
+import com.coreplayer.app.ui.util.resolveCoverUrl
 import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CoreLogoStyle
 import com.coreplayer.app.ui.theme.CorePlayerTheme
@@ -189,7 +190,7 @@ fun HomeScreenContent(
                         items(uiState.artists, key = { it.id }) { artist ->
                             ArtistCard(
                                 name = artist.name,
-                                imageUrl = resolveCoverUrl(artist.coverArt, baseUrl),
+                                imageUrl = resolveArtistImageUrl(artist, baseUrl),
                                 subtitle = "Артист",
                                 onClick = { onArtistClick(artist) }
                             )
@@ -266,8 +267,7 @@ fun HomeScreenContent(
                     ) {
                         items(uiState.playlists, key = { it.id }) { playlist ->
                             PlaylistCard(
-                                title = playlist.name,
-                                trackCount = playlist.songCount,
+                                playlist = playlist,
                                 coverUrl = resolveCoverUrl(playlist.coverArt, baseUrl),
                                 onClick = { onPlaylistClick(playlist) },
                                 onPlayClick = { onPlaylistPlayClick(playlist) }

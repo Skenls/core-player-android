@@ -15,24 +15,29 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.coreplayer.app.ui.theme.CardSubtitleStyle
-import com.coreplayer.app.ui.theme.CardTitleStyle
-import com.coreplayer.app.ui.theme.DarkSurfaceVariant
-import com.coreplayer.app.ui.theme.TextSecondary
+import com.coreplayer.app.ui.theme.CorePlayerTheme
+import com.coreplayer.app.ui.theme.TextPrimary
+import kotlin.math.abs
 
 /**
- * Artist card matching the "Недавние артисты" section in the mockup.
+ * Artist card matching the "Недавние артисты" section in helpers/ mockup.
  *
- * Displays a 16dp rounded square artist photo loaded via Coil with placeholder fallback,
+ * Displays a 22dp squircle artist photo loaded via Coil,
  * the artist's name (truncated with ellipsis), and subtitle "Артист".
  */
 @Composable
@@ -41,29 +46,41 @@ fun ArtistCard(
     imageUrl: String?,
     modifier: Modifier = Modifier,
     subtitle: String = "Артист",
-    cardSize: Dp = 104.dp,
+    cardSize: Dp = 112.dp,
     onClick: () -> Unit = {}
 ) {
+    val cornerShape = RoundedCornerShape(22.dp)
+    val fallbackGradient = remember(name) {
+        val palettes = listOf(
+            listOf(Color(0xFF1E2838), Color(0xFF131A26)),
+            listOf(Color(0xFF231F33), Color(0xFF171324)),
+            listOf(Color(0xFF1B2F38), Color(0xFF111D24)),
+            listOf(Color(0xFF2E241E), Color(0xFF1C1612))
+        )
+        val idx = abs(name.hashCode()) % palettes.size
+        Brush.verticalGradient(palettes[idx])
+    }
+
     Column(
         modifier = modifier
             .width(cardSize)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(cornerShape)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.Start
     ) {
         Box(
             modifier = Modifier
                 .size(cardSize)
-                .clip(RoundedCornerShape(16.dp))
-                .background(DarkSurfaceVariant),
+                .clip(cornerShape)
+                .background(fallbackGradient),
             contentAlignment = Alignment.Center
         ) {
             if (imageUrl.isNullOrBlank()) {
                 Icon(
                     imageVector = Icons.Filled.Person,
                     contentDescription = name,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(44.dp)
+                    tint = Color(0xFF6B7280),
+                    modifier = Modifier.size(46.dp)
                 )
             } else {
                 AsyncImage(
@@ -76,32 +93,34 @@ fun ArtistCard(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
         Text(
             text = name,
-            style = CardTitleStyle,
+            color = TextPrimary,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = subtitle,
-            style = CardSubtitleStyle,
+            color = Color(0xFF8E95A5),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview(showBackground = true, backgroundColor = 0xFF0B0F17)
+@Preview(showBackground = true, backgroundColor = 0xFF0B0F17)
 @Composable
 private fun ArtistCardPreview() {
-    com.coreplayer.app.ui.theme.CorePlayerTheme {
+    CorePlayerTheme {
         ArtistCard(
             name = "The Neighbourhood",
-            imageUrl = null,
-            subtitle = "Артист"
+            imageUrl = null
         )
     }
 }
-

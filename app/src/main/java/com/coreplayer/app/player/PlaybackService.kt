@@ -70,5 +70,22 @@ class PlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
-    private class MediaSessionCallback : MediaSession.Callback
+    private class MediaSessionCallback : MediaSession.Callback {
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo
+        ): MediaSession.ConnectionResult {
+            val connectionResult = super.onConnect(session, controller)
+            val sessionCommands = connectionResult.availableSessionCommands
+            val playerCommands = connectionResult.availablePlayerCommands
+                .buildUpon()
+                .add(androidx.media3.common.Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM)
+                .add(androidx.media3.common.Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                .add(androidx.media3.common.Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                .add(androidx.media3.common.Player.COMMAND_SEEK_BACK)
+                .add(androidx.media3.common.Player.COMMAND_SEEK_FORWARD)
+                .build()
+            return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands)
+        }
+    }
 }
