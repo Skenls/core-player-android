@@ -1,2 +1,18 @@
 .DS_Store
 .superpowers
+
+# Gradle
+.gradle/
+build/
+app/build/
+
+# Local configuration
+local.properties
+
+# IDE
+.idea/
+*.iml
+
+# Android build outputs
+*.apk
+*.aab
