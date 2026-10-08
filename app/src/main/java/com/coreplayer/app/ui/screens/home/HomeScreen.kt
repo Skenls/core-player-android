@@ -337,9 +337,10 @@ fun HomeScreenContent(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         items(uiState.playlists, key = { it.id }) { playlist ->
+                            val resolvedArt = playlist.coverArt ?: uiState.playlistCovers[playlist.id]
                             PlaylistCard(
                                 playlist = playlist,
-                                coverUrl = resolveCoverUrl(playlist.coverArt, baseUrl),
+                                coverUrl = resolveCoverUrl(resolvedArt, baseUrl),
                                 onClick = { onPlaylistClick(playlist) },
                                 onPlayClick = { onPlaylistPlayClick(playlist) }
                             )

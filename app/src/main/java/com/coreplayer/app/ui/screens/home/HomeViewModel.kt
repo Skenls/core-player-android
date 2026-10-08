@@ -20,6 +20,7 @@ data class HomeUiState(
     val favorites: List<TrackDto> = emptyList(),
     val favoritesCount: Int = favorites.size,
     val recentTracks: List<TrackDto> = emptyList(),
+    val playlistCovers: Map<String, String> = emptyMap(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -54,6 +55,20 @@ class HomeViewModel(
                         isLoading = false,
                         error = null
                     )
+                }
+
+                // Asynchronously fetch first-track covers for playlists
+                val covers = mutableMapOf<String, String>()
+                for (pl in playlists) {
+                    val tracks = libraryRepository.getPlaylistTracks(pl.id)
+                    val first = tracks.firstOrNull()
+                    val art = first?.coverArt ?: first?.id
+                    if (!art.isNullOrBlank()) {
+                        covers[pl.id] = art
+                    }
+                }
+                if (covers.isNotEmpty()) {
+                    _uiState.update { it.copy(playlistCovers = covers) }
                 }
             } catch (e: Exception) {
                 _uiState.update {
