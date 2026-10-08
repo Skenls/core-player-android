@@ -8,6 +8,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,7 +34,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,6 +102,8 @@ fun FloatingMiniPlayer(
         label = "miniPlayerProgress"
     )
 
+    var totalDragY by remember { mutableFloatStateOf(0f) }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -112,6 +119,19 @@ fun FloatingMiniPlayer(
             .border(
                 border = BorderStroke(1.dp, Color(0x38FFFFFF)),
                 shape = CircleShape
+            )
+            .draggable(
+                orientation = Orientation.Vertical,
+                state = rememberDraggableState { delta ->
+                    totalDragY += delta
+                },
+                onDragStopped = { velocity ->
+                    // Swiping upwards produces negative delta / velocity
+                    if (totalDragY < -20f || velocity < -100f) {
+                        onClick()
+                    }
+                    totalDragY = 0f
+                }
             )
             .clickable(
                 role = Role.Button,

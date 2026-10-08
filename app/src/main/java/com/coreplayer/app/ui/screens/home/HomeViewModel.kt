@@ -11,6 +11,8 @@ import com.coreplayer.app.player.PlayerControllerManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -35,6 +37,40 @@ class HomeViewModel(
 
     init {
         loadHomeData()
+        observePlayerState()
+        observeFavorites()
+    }
+
+    private fun observePlayerState() {
+        viewModelScope.launch {
+            playerController.state
+                .mapNotNull { it.currentTrack }
+                .distinctUntilChangedBy { it.id }
+                .collect { newTrack ->
+                    _uiState.update { state ->
+                        val updated = (listOf(newTrack) + state.recentTracks.filter { it.id != newTrack.id }).take(6)
+                        state.copy(recentTracks = updated)
+                    }
+                }
+        }
+    }
+
+    private fun observeFavorites() {
+        viewModelScope.launch {
+            libraryRepository.favoritesChanged.collect {
+                try {
+                    val updatedFavorites = libraryRepository.getFavoriteTracks()
+                    _uiState.update {
+                        it.copy(
+                            favorites = updatedFavorites,
+                            favoritesCount = updatedFavorites.size
+                        )
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("HomeViewModel", "Failed to refresh favorites", e)
+                }
+            }
+        }
     }
 
     fun loadHomeData() {
@@ -44,7 +80,11 @@ class HomeViewModel(
                 val artists = libraryRepository.getArtists()
                 val playlists = libraryRepository.getPlaylists()
                 val favorites = libraryRepository.getFavoriteTracks()
-                val recent = favorites.take(6)
+                val recent = if (_uiState.value.recentTracks.isNotEmpty()) {
+                    _uiState.value.recentTracks
+                } else {
+                    favorites.take(6)
+                }
                 _uiState.update {
                     it.copy(
                         artists = artists,

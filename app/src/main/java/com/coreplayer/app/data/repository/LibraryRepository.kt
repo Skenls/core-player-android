@@ -10,10 +10,20 @@ import com.coreplayer.app.data.model.FavoritesIdsResponse
 import com.coreplayer.app.data.model.PlaylistDto
 import com.coreplayer.app.data.model.SearchResponse
 import com.coreplayer.app.data.model.TrackDto
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class LibraryRepository(
     private val api: CorePlayerApi
 ) {
+    private val _favoritesChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val favoritesChanged: SharedFlow<Unit> = _favoritesChanged.asSharedFlow()
+
+    fun notifyFavoritesChanged() {
+        _favoritesChanged.tryEmit(Unit)
+    }
+
     suspend fun getArtists(): List<ArtistDto> = api.getArtists()
 
     suspend fun getAlbums(type: String? = null, size: Int? = null): List<AlbumDto> =
@@ -41,8 +51,11 @@ class LibraryRepository(
 
     suspend fun getFavoriteIds(): FavoritesIdsResponse = api.getFavoriteIds()
 
-    suspend fun toggleFavorite(itemId: String, itemType: String = "track"): FavoriteToggleResponse =
-        api.toggleFavorite(FavoriteToggleRequest(id = itemId, type = itemType))
+    suspend fun toggleFavorite(itemId: String, itemType: String = "track"): FavoriteToggleResponse {
+        val response = api.toggleFavorite(FavoriteToggleRequest(id = itemId, type = itemType))
+        _favoritesChanged.tryEmit(Unit)
+        return response
+    }
 
     suspend fun getFavoriteTracks(): List<TrackDto> = api.getFavoriteTracks()
 

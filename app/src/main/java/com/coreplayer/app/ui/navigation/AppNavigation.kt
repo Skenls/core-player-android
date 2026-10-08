@@ -80,6 +80,20 @@ fun AppNavigation(
         }
     }
 
+    LaunchedEffect(Unit) {
+        libraryRepository.favoritesChanged.collect {
+            val currentId = playerState.currentTrack?.id
+            if (currentId != null) {
+                try {
+                    val favIds = libraryRepository.getFavoriteIds()
+                    isCurrentTrackFavorite = favIds.track_ids.contains(currentId)
+                } catch (e: Exception) {
+                    // keep current
+                }
+            }
+        }
+    }
+
     val toggleFavorite: () -> Unit = {
         val currentId = playerState.currentTrack?.id
         if (currentId != null) {

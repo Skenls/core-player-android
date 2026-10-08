@@ -111,6 +111,16 @@ fun LibraryScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        libraryRepository.favoritesChanged.collect {
+            try {
+                favorites = libraryRepository.getFavoriteTracks()
+            } catch (e: Exception) {
+                android.util.Log.e("LibraryScreen", "Failed to refresh favorites", e)
+            }
+        }
+    }
+
     LibraryScreenContent(
         selectedTabIndex = selectedTab,
         onTabSelected = { selectedTab = it },

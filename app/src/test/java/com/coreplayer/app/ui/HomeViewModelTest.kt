@@ -50,11 +50,16 @@ class HomeViewModelTest {
         TrackDto(id = "trk-2", title = "Sweater Weather", artist = "The Neighbourhood", duration = 240)
     )
 
+    private val defaultFavoritesChanged = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val defaultPlayerState = kotlinx.coroutines.flow.MutableStateFlow(com.coreplayer.app.player.PlayerState())
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         libraryRepository = mockk(relaxed = true)
         playerController = mockk(relaxed = true)
+        every { libraryRepository.favoritesChanged } returns defaultFavoritesChanged
+        every { playerController.state } returns defaultPlayerState
     }
 
     @After
@@ -235,5 +240,42 @@ class HomeViewModelTest {
         coVerify(atLeast = 2) { libraryRepository.getArtists() }
         coVerify(atLeast = 2) { libraryRepository.getPlaylists() }
         coVerify(atLeast = 2) { libraryRepository.getFavoriteTracks() }
+    }
+
+    @Test
+    fun playerStateChanged_updatesRecentTracksImmediately() = runTest(testDispatcher) {
+        val playerStateFlow = kotlinx.coroutines.flow.MutableStateFlow(com.coreplayer.app.player.PlayerState())
+        every { playerController.state } returns playerStateFlow
+        coEvery { libraryRepository.getArtists() } returns sampleArtists
+        coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
+        coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites
+
+        val viewModel = HomeViewModel(libraryRepository, playerController)
+        advanceUntilIdle()
+
+        val newlyPlayed = TrackDto(id = "trk-new-1", title = "New Song", artist = "New Artist")
+        playerStateFlow.value = com.coreplayer.app.player.PlayerState(currentTrack = newlyPlayed)
+        advanceUntilIdle()
+
+        assertEquals("trk-new-1", viewModel.uiState.value.recentTracks.first().id)
+    }
+
+    @Test
+    fun favoritesChanged_refreshesFavoritesImmediately() = runTest(testDispatcher) {
+        val favoritesChangedFlow = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        every { libraryRepository.favoritesChanged } returns favoritesChangedFlow
+        coEvery { libraryRepository.getArtists() } returns sampleArtists
+        coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
+        coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites andThen listOf(sampleFavorites[0])
+
+        val viewModel = HomeViewModel(libraryRepository, playerController)
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.favoritesCount)
+
+        favoritesChangedFlow.tryEmit(Unit)
+        advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.favoritesCount)
     }
 }

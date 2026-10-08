@@ -18,8 +18,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -28,6 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -37,17 +41,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.coreplayer.app.CorePlayerApp
 import com.coreplayer.app.data.model.TrackDto
 import com.coreplayer.app.data.repository.LibraryRepository
-import androidx.compose.ui.graphics.Color
+import com.coreplayer.app.data.repository.SearchHistoryManager
 import com.coreplayer.app.player.PlayerControllerManager
 import com.coreplayer.app.player.formatTime
 import com.coreplayer.app.ui.screens.nowplaying.resolveCoverUrl
@@ -66,11 +75,13 @@ import kotlinx.coroutines.delay
 fun SearchScreen(
     libraryRepository: LibraryRepository,
     playerController: PlayerControllerManager,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    searchHistoryManager: SearchHistoryManager = CorePlayerApp.instance.searchHistoryManager
 ) {
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<TrackDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
+    val searchHistory by searchHistoryManager.history.collectAsStateWithLifecycle()
 
     LaunchedEffect(query) {
         val trimmed = query.trim()
@@ -98,7 +109,26 @@ fun SearchScreen(
         results = results,
         isLoading = isLoading,
         baseUrl = playerController.baseUrl,
+        searchHistory = searchHistory,
+        onHistoryItemClick = { item ->
+            query = item
+            searchHistoryManager.addQuery(item)
+        },
+        onRemoveHistoryItem = { item ->
+            searchHistoryManager.removeQuery(item)
+        },
+        onClearHistory = {
+            searchHistoryManager.clearHistory()
+        },
+        onPerformSearch = { searchQuery ->
+            if (searchQuery.isNotBlank()) {
+                searchHistoryManager.addQuery(searchQuery)
+            }
+        },
         onTrackClick = { track ->
+            if (query.isNotBlank()) {
+                searchHistoryManager.addQuery(query)
+            }
             playerController.playTrack(track, results)
         },
         modifier = modifier
@@ -113,9 +143,16 @@ fun SearchScreenContent(
     results: List<TrackDto>,
     isLoading: Boolean,
     baseUrl: String,
+    searchHistory: List<String> = emptyList(),
+    onHistoryItemClick: (String) -> Unit = {},
+    onRemoveHistoryItem: (String) -> Unit = {},
+    onClearHistory: () -> Unit = {},
+    onPerformSearch: (String) -> Unit = {},
     onTrackClick: (TrackDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val focusManager = LocalFocusManager.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -154,6 +191,13 @@ fun SearchScreenContent(
                     }
                 }
             },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(
+                onSearch = {
+                    focusManager.clearFocus()
+                    onPerformSearch(query)
+                }
+            ),
             singleLine = true,
             shape = RoundedCornerShape(16.dp),
             colors = OutlinedTextFieldDefaults.colors(
@@ -180,22 +224,93 @@ fun SearchScreenContent(
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else if (query.isBlank()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Search,
-                        contentDescription = null,
-                        tint = TextSecondary.copy(alpha = 0.5f),
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Введите поисковый запрос",
-                        color = TextSecondary,
-                        fontSize = 15.sp
-                    )
+                if (searchHistory.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "История поиска",
+                                style = SectionTitleStyle,
+                                fontSize = 17.sp
+                            )
+                            TextButton(
+                                onClick = onClearHistory,
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "Очистить",
+                                    color = TextSecondary,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            items(searchHistory, key = { it }) { historyItem ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { onHistoryItemClick(historyItem) }
+                                        .padding(vertical = 10.dp, horizontal = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.History,
+                                        contentDescription = null,
+                                        tint = TextSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = historyItem,
+                                        color = TextPrimary,
+                                        fontSize = 15.sp,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = { onRemoveHistoryItem(historyItem) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Clear,
+                                            contentDescription = "Удалить",
+                                            tint = TextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = null,
+                            tint = TextSecondary.copy(alpha = 0.5f),
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Введите поисковый запрос",
+                            color = TextSecondary,
+                            fontSize = 15.sp
+                        )
+                    }
                 }
             } else if (results.isEmpty()) {
                 Text(
@@ -305,15 +420,13 @@ fun SearchTrackItem(
 private fun SearchScreenPreview() {
     CorePlayerTheme {
         SearchScreenContent(
-            query = "Radiohead",
+            query = "",
             onQueryChange = {},
             onClearQuery = {},
-            results = listOf(
-                TrackDto(id = "1", title = "Karma Police", artist = "Radiohead", duration = 264),
-                TrackDto(id = "2", title = "Paranoid Android", artist = "Radiohead", duration = 383)
-            ),
+            results = emptyList(),
             isLoading = false,
             baseUrl = "",
+            searchHistory = listOf("Radiohead", "Kai Angel", "Pretty Girls"),
             onTrackClick = {}
         )
     }

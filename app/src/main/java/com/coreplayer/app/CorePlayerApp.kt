@@ -9,6 +9,7 @@ import com.coreplayer.app.data.api.InMemoryCookieJar
 import com.coreplayer.app.data.repository.AuthRepository
 import com.coreplayer.app.data.repository.LibraryRepository
 import com.coreplayer.app.data.repository.LyricsRepository
+import com.coreplayer.app.data.repository.SearchHistoryManager
 import com.coreplayer.app.player.PlayerControllerManager
 import okhttp3.OkHttpClient
 
@@ -30,6 +31,8 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
             .cookieJar(cookieJar)
             .build()
     }
+
+    val searchHistoryManager by lazy { SearchHistoryManager(this) }
 
     lateinit var playerController: PlayerControllerManager
         private set
