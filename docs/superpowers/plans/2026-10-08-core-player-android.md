@@ -39,64 +39,12 @@
 - Consumes: None (root configuration)
 - Produces: Gradle build system with Android plugin, Compose compiler, Media3, Retrofit, and OkHttp dependencies.
 
-- [ ] **Step 1: Create `settings.gradle.kts` with plugin management and repositories**
-
-```kotlin
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
-        google()
-        mavenCentral()
-        maven { url = java.net.URI.create("https://jitpack.io") }
-    }
-}
-
-rootProject.name = "CorePlayer"
-include(":app")
-```
-
-- [ ] **Step 2: Create root `build.gradle.kts`**
-
-```kotlin
-plugins {
-    id("com.android.application") version "8.7.0" apply false
-    id("org.jetbrains.kotlin.android") version "2.0.20" apply false
-    id("org.jetbrains.kotlin.plugin.compose") version "2.0.20" apply false
-}
-```
-
-- [ ] **Step 3: Create `gradle/wrapper/gradle-wrapper.properties` and executable `gradlew`**
-
-Configure Gradle 8.9 distribution in wrapper properties.
-
-- [ ] **Step 4: Create `app/build.gradle.kts` with all required dependencies**
-
-Include:
-- Android Compose & Material 3
-- Media3 (`media3-exoplayer`, `media3-session`, `media3-ui`)
-- Retrofit 2 & Moshi
-- OkHttp 3 & logging interceptor
-- Coil Compose
-- JUnit 4 & AndroidX Test
-
-- [ ] **Step 5: Create `app/src/main/AndroidManifest.xml`**
-
-Declare permissions:
-- `android.permission.INTERNET`
-- `android.permission.FOREGROUND_SERVICE`
-- `android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK`
-- `android.permission.POST_NOTIFICATIONS`
-- `android.permission.WAKE_LOCK`
-Declare `MainActivity` and `PlaybackService`.
-
-- [ ] **Step 6: Commit scaffolding**
+- [x] **Step 1: Create `settings.gradle.kts` with plugin management and repositories**
+- [x] **Step 2: Create root `build.gradle.kts`**
+- [x] **Step 3: Create `gradle/wrapper/gradle-wrapper.properties` and executable `gradlew`**
+- [x] **Step 4: Create `app/build.gradle.kts` with all required dependencies**
+- [x] **Step 5: Create `app/src/main/AndroidManifest.xml`**
+- [x] **Step 6: Commit scaffolding**
 
 ```bash
 git add settings.gradle.kts build.gradle.kts gradle/ app/
