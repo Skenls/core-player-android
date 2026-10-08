@@ -123,27 +123,12 @@ git commit -m "feat: implement Media3 PlaybackService and PlayerControllerManage
 - Consumes: Material 3, Coil Compose, Theme colors
 - Produces: Reusable UI components matching `helpers/ChatGPT Image 8 окт. 2026 г., 11_34_30.png`
 
-- [ ] **Step 1: Define Theme and Color palette**
-
-Background `#0B0F17`, Surface `#131A26`, Play Accent `#FF5722`, Text White `#FFFFFF`, Subtitle `#8E95A5`.
-
-- [ ] **Step 2: Implement `ArtistCard`**
-
-Square card with rounded corners (16dp), artist image loaded via Coil, artist name, and subtitle "Артист".
-
-- [ ] **Step 3: Implement `FavoritesBanner`**
-
-Wide landscape banner card with rounded corners (20dp), background image, title "Мои треки", subtitle "Плейлист · N треков", and favorite heart icon on top right.
-
-- [ ] **Step 4: Implement `PlaylistCard`**
-
-Square playlist card with cover image, translucent play button overlay in bottom-left corner, title and subtitle "Плейлист · N треков".
-
-- [ ] **Step 5: Implement `BottomNavBar`**
-
-3-item navigation bar: Home, Search, Library with clean typography and matching icons.
-
-- [ ] **Step 6: Commit design system and components**
+- [x] **Step 1: Define Theme and Color palette**
+- [x] **Step 2: Implement `ArtistCard`**
+- [x] **Step 3: Implement `FavoritesBanner`**
+- [x] **Step 4: Implement `PlaylistCard`**
+- [x] **Step 5: Implement `BottomNavBar`**
+- [x] **Step 6: Commit design system and components**
 
 ```bash
 git add app/src/main/java/com/coreplayer/app/ui/theme/ app/src/main/java/com/coreplayer/app/ui/components/
