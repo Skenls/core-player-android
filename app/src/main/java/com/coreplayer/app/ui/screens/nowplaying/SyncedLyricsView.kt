@@ -1,9 +1,8 @@
 package com.coreplayer.app.ui.screens.nowplaying
 
 import android.os.Build
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -139,11 +138,13 @@ fun SyncedLyricsView(
 
     val listState = rememberLazyListState()
 
-    // Smooth auto-scroll to active line, centering it in view
-    LaunchedEffect(activeIndex) {
-        if (activeIndex in lyrics.indices) {
+    val isScrolling = listState.isScrollInProgress
+
+    // Smooth auto-scroll to active line, centering it one line higher in view
+    LaunchedEffect(activeIndex, isScrolling) {
+        if (!isScrolling && activeIndex in lyrics.indices) {
             val viewportHeight = listState.layoutInfo.viewportSize.height
-            val centerOffset = if (viewportHeight > 0) -(viewportHeight / 3) else 0
+            val centerOffset = if (viewportHeight > 0) -(viewportHeight / 4) else 0
             listState.animateScrollToItem(
                 index = activeIndex,
                 scrollOffset = centerOffset
@@ -164,25 +165,21 @@ fun SyncedLyricsView(
             val isActive = index == activeIndex
 
             val alpha by animateFloatAsState(
-                targetValue = if (isActive) 1f else 0.32f,
-                animationSpec = spring(),
+                targetValue = if (isActive) 1f else if (isScrolling) 0.65f else 0.35f,
+                animationSpec = tween(150),
                 label = "lyricAlpha_$index"
             )
 
             val scale by animateFloatAsState(
                 targetValue = if (isActive) 1.05f else 1f,
-                animationSpec = spring(),
+                animationSpec = tween(150),
                 label = "lyricScale_$index"
             )
 
-            val blurRadius by animateDpAsState(
-                targetValue = if (isActive) 0.dp else 2.5.dp,
-                animationSpec = spring(),
-                label = "lyricBlur_$index"
-            )
-
-            val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.dp) {
-                Modifier.blur(blurRadius)
+            // Remove blur when user is scrolling so text is instantly readable,
+            // and use static blur without continuous animateDpAsState to prevent lag on battery saver
+            val blurModifier = if (!isActive && !isScrolling && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Modifier.blur(2.dp)
             } else {
                 Modifier
             }

@@ -1,10 +1,17 @@
 package com.coreplayer.app.ui.components
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -42,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -168,36 +176,41 @@ fun FloatingMiniPlayer(
                         totalDragY = 0f
                     },
                     onDragEnd = {
-                        coroutineScope.launch {
-                            if (dragDirection == "V" && totalDragY < -30f) {
-                                // Swipe up: animate expanding transition into full player
-                                animOffsetY.animateTo(-50f, tween(150))
-                                animScale.animateTo(1.08f, tween(150))
-                                onClick()
+                        if (dragDirection == "V" && totalDragY < -20f) {
+                            // Swipe up: immediately expand sheet in parallel
+                            onClick()
+                            coroutineScope.launch {
+                                animOffsetY.animateTo(-30f, tween(90))
                                 animOffsetY.snapTo(0f)
                                 animScale.snapTo(1f)
-                            } else if (dragDirection == "H" && totalDragX < -50f && onSkipNext != null) {
-                                // Swipe left: animate slide out to left, invoke next, slide in from right
-                                animOffsetX.animateTo(-600f, tween(160))
-                                onSkipNext()
-                                animOffsetX.snapTo(600f)
-                                animOffsetX.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 400f))
-                            } else if (dragDirection == "H" && totalDragX > 50f && onSkipPrevious != null) {
-                                // Swipe right: animate slide out to right, invoke previous, slide in from left
-                                animOffsetX.animateTo(600f, tween(160))
-                                onSkipPrevious()
-                                animOffsetX.snapTo(-600f)
-                                animOffsetX.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 400f))
-                            } else {
-                                // Reset to resting position
-                                animOffsetX.animateTo(0f, spring())
-                                animOffsetY.animateTo(0f, spring())
-                                animScale.animateTo(1f, spring())
                             }
-                            dragDirection = null
-                            totalDragX = 0f
-                            totalDragY = 0f
+                        } else if (dragDirection == "H" && totalDragX < -35f && onSkipNext != null) {
+                            // Swipe left: immediately advance track and do quick flick transition
+                            onSkipNext()
+                            coroutineScope.launch {
+                                animOffsetX.animateTo(-140f, tween(75))
+                                animOffsetX.snapTo(100f)
+                                animOffsetX.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
+                            }
+                        } else if (dragDirection == "H" && totalDragX > 35f && onSkipPrevious != null) {
+                            // Swipe right: immediately go to previous track and do quick flick transition
+                            onSkipPrevious()
+                            coroutineScope.launch {
+                                animOffsetX.animateTo(140f, tween(75))
+                                animOffsetX.snapTo(-100f)
+                                animOffsetX.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
+                            }
+                        } else {
+                            // Reset to resting position
+                            coroutineScope.launch {
+                                animOffsetX.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 800f))
+                                animOffsetY.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 800f))
+                                animScale.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 800f))
+                            }
                         }
+                        dragDirection = null
+                        totalDragX = 0f
+                        totalDragY = 0f
                     },
                     onDragCancel = {
                         coroutineScope.launch {
@@ -215,21 +228,21 @@ fun FloatingMiniPlayer(
                         totalDragY += dragAmount.y
 
                         if (dragDirection == null) {
-                            if (abs(totalDragX) > 15f && abs(totalDragX) > abs(totalDragY)) {
+                            if (abs(totalDragX) > 12f && abs(totalDragX) > abs(totalDragY)) {
                                 dragDirection = "H"
-                            } else if (totalDragY < -15f) {
+                            } else if (totalDragY < -12f) {
                                 dragDirection = "V"
                             }
                         }
 
                         if (dragDirection == "H") {
                             coroutineScope.launch {
-                                animOffsetX.snapTo(totalDragX)
+                                animOffsetX.snapTo(totalDragX.coerceIn(-100f, 100f))
                             }
                         } else if (dragDirection == "V" && totalDragY < 0f) {
                             coroutineScope.launch {
-                                animOffsetY.snapTo(totalDragY.coerceAtLeast(-60f))
-                                val scaleVal = 1f + (-totalDragY / 300f).coerceIn(0f, 0.08f)
+                                animOffsetY.snapTo(totalDragY.coerceAtLeast(-45f))
+                                val scaleVal = 1f + (-totalDragY / 350f).coerceIn(0f, 0.05f)
                                 animScale.snapTo(scaleVal)
                             }
                         }
@@ -309,28 +322,44 @@ fun FloatingMiniPlayer(
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Center: Track title and artist name
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+            // Center: Track title and artist name with smooth sliding transition
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clipToBounds(),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Text(
-                    text = trackTitle,
-                    color = TextPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = artistName,
-                    color = Color(0xFF9CA3AF),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                AnimatedContent(
+                    targetState = Pair(trackTitle, artistName),
+                    transitionSpec = {
+                        (slideInHorizontally(tween(130)) { width -> width / 3 } + fadeIn(tween(130)))
+                            .togetherWith(slideOutHorizontally(tween(130)) { width -> -width / 3 } + fadeOut(tween(130)))
+                    },
+                    label = "miniPlayerTextTransition"
+                ) { (title, artist) ->
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = title,
+                            color = TextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = artist,
+                            color = Color(0xFF9CA3AF),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.width(6.dp))

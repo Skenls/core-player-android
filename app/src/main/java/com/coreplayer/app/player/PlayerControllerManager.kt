@@ -372,6 +372,18 @@ open class PlayerControllerManager(
         val queue = currentQueue
 
         if (p.hasNextMediaItem()) {
+            val nextTrack = getNextTrackInQueue()
+            if (nextTrack != null) {
+                _state.update {
+                    it.copy(
+                        currentTrack = nextTrack,
+                        currentPositionMs = 0L,
+                        durationMs = (nextTrack.duration * 1000L).coerceAtLeast(0L),
+                        isPlaying = true,
+                        isBuffering = true
+                    )
+                }
+            }
             p.seekToNextMediaItem()
             return
         }
@@ -474,6 +486,18 @@ open class PlayerControllerManager(
         }
 
         if (p.hasPreviousMediaItem()) {
+            val prevTrack = getPreviousTrackInQueue()
+            if (prevTrack != null) {
+                _state.update {
+                    it.copy(
+                        currentTrack = prevTrack,
+                        currentPositionMs = 0L,
+                        durationMs = (prevTrack.duration * 1000L).coerceAtLeast(0L),
+                        isPlaying = true,
+                        isBuffering = true
+                    )
+                }
+            }
             p.seekToPreviousMediaItem()
             return
         }
