@@ -148,7 +148,7 @@ git commit -m "feat: implement dark glassmorphic design system and helper compon
 - Consumes: `PlayerState`, `PlayerControllerManager`, `LyricsRepository`
 - Produces: Floating mini-player capsule and expandable full-screen player with synced LRC karaoke lyrics
 
-- [ ] **Step 1: Implement `FloatingMiniPlayer`**
+- [x] **Step 1: Implement `FloatingMiniPlayer`**
 
 Pill-shaped floating card elevated above the bottom navigation bar:
 - Orange circular Play/Pause button on the left
@@ -156,14 +156,14 @@ Pill-shaped floating card elevated above the bottom navigation bar:
 - Heart favorite toggle on the right
 - Click opens `NowPlayingBottomSheet`
 
-- [ ] **Step 2: Implement `SyncedLyricsView`**
+- [x] **Step 2: Implement `SyncedLyricsView`**
 
 Compose `LazyColumn` for karaoke lyrics:
 - Automatic smooth scroll to current line based on `currentPositionMs`
 - Highlight active line with bold white font and slight scale animation
 - Inactive lines rendered with 40% opacity
 
-- [ ] **Step 3: Implement `NowPlayingBottomSheet`**
+- [x] **Step 3: Implement `NowPlayingBottomSheet`**
 
 Full-screen player modal:
 - High-res album artwork with dynamic background blur
@@ -171,7 +171,7 @@ Full-screen player modal:
 - Playback controls: Shuffle, Previous, Play/Pause, Next, Repeat
 - Toggle button for Lyrics view
 
-- [ ] **Step 4: Commit mini-player and Now Playing screens**
+- [x] **Step 4: Commit mini-player and Now Playing screens**
 
 ```bash
 git add app/src/main/java/com/coreplayer/app/ui/components/FloatingMiniPlayer.kt app/src/main/java/com/coreplayer/app/ui/screens/nowplaying/
