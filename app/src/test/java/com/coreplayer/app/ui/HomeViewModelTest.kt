@@ -127,6 +127,28 @@ class HomeViewModelTest {
 
     @Test
     fun playPlaylist_playsTrack() = runTest(testDispatcher) {
+        val playlist = samplePlaylists[0]
+        coEvery { libraryRepository.getArtists() } returns sampleArtists
+        coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
+        coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites
+        coEvery { libraryRepository.getPlaylistTracks(playlist.id) } returns sampleFavorites
+
+        val viewModel = HomeViewModel(libraryRepository, playerController)
+        advanceUntilIdle()
+
+        viewModel.playPlaylist(playlist)
+        advanceUntilIdle()
+
+        verify {
+            playerController.playTrack(
+                sampleFavorites[0],
+                sampleFavorites
+            )
+        }
+    }
+
+    @Test
+    fun playRecentTrack_playsTrackWithQueue() = runTest(testDispatcher) {
         coEvery { libraryRepository.getArtists() } returns sampleArtists
         coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
         coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites
@@ -134,14 +156,11 @@ class HomeViewModelTest {
         val viewModel = HomeViewModel(libraryRepository, playerController)
         advanceUntilIdle()
 
-        val playlist = samplePlaylists[0]
-        viewModel.playPlaylist(playlist)
+        val track = sampleFavorites[0]
+        viewModel.playRecentTrack(track)
 
         verify {
-            playerController.playTrack(
-                match { it.id == playlist.id && it.title == playlist.name },
-                sampleFavorites
-            )
+            playerController.playTrack(track, sampleFavorites.take(6))
         }
     }
 
@@ -166,7 +185,7 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun playArtist_withoutMatchingFavoriteTrack_synthesizesAndPlays() = runTest(testDispatcher) {
+    fun playArtist_withoutMatchingFavoriteTrack_doesNotPlayBogusTrack() = runTest(testDispatcher) {
         coEvery { libraryRepository.getArtists() } returns sampleArtists
         coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
         coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites
@@ -177,11 +196,8 @@ class HomeViewModelTest {
         val unknownArtist = ArtistDto(id = "art-99", name = "Unknown Band")
         viewModel.playArtist(unknownArtist)
 
-        verify {
-            playerController.playTrack(
-                match { it.id == "art-99" && it.title == "Unknown Band" },
-                match { it.size == 1 && it[0].id == "art-99" }
-            )
+        verify(exactly = 0) {
+            playerController.playTrack(any(), any())
         }
     }
 

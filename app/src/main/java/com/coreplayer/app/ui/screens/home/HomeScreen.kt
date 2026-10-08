@@ -50,6 +50,7 @@ import com.coreplayer.app.player.PlayerControllerManager
 import com.coreplayer.app.ui.components.ArtistCard
 import com.coreplayer.app.ui.components.FavoritesBanner
 import com.coreplayer.app.ui.components.PlaylistCard
+import com.coreplayer.app.ui.components.RecentTrackCard
 import com.coreplayer.app.ui.util.resolveArtistImageUrl
 import com.coreplayer.app.ui.util.resolveCoverUrl
 import com.coreplayer.app.ui.theme.AccentOrange
@@ -111,6 +112,7 @@ fun HomeScreen(
         uiState = uiState,
         baseUrl = playerController.baseUrl,
         onArtistClick = { viewModel.playArtist(it) },
+        onTrackClick = { viewModel.playRecentTrack(it) },
         onFavoritesClick = { viewModel.playFavorites() },
         onFavoritesHeaderClick = onNavigateToFavorites,
         onPlaylistClick = { viewModel.playPlaylist(it) },
@@ -127,6 +129,7 @@ fun HomeScreenContent(
     uiState: HomeUiState,
     baseUrl: String,
     onArtistClick: (ArtistDto) -> Unit,
+    onTrackClick: (TrackDto) -> Unit = {},
     onFavoritesClick: () -> Unit,
     onFavoritesHeaderClick: () -> Unit,
     onPlaylistClick: (PlaylistDto) -> Unit,
@@ -208,8 +211,42 @@ fun HomeScreenContent(
                     }
                 }
 
-                // 2. "Недавние артисты" section
-                if (uiState.artists.isNotEmpty()) {
+                // 2. "Недавние" quick-access grid (matching helpers/IMG_DB4D8C23A082-1.jpeg)
+                if (uiState.recentTracks.isNotEmpty()) {
+                    Text(
+                        text = "Недавние",
+                        style = SectionTitleStyle,
+                        modifier = Modifier.padding(horizontal = 20.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        uiState.recentTracks.chunked(2).forEach { rowTracks ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                for (track in rowTracks) {
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        RecentTrackCard(
+                                            track = track,
+                                            baseUrl = baseUrl,
+                                            onClick = { onTrackClick(track) }
+                                        )
+                                    }
+                                }
+                                if (rowTracks.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(28.dp))
+                } else if (uiState.artists.isNotEmpty()) {
                     Text(
                         text = "Недавние артисты",
                         style = SectionTitleStyle,

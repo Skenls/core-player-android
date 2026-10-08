@@ -19,6 +19,7 @@ data class HomeUiState(
     val playlists: List<PlaylistDto> = emptyList(),
     val favorites: List<TrackDto> = emptyList(),
     val favoritesCount: Int = favorites.size,
+    val recentTracks: List<TrackDto> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -42,12 +43,14 @@ class HomeViewModel(
                 val artists = libraryRepository.getArtists()
                 val playlists = libraryRepository.getPlaylists()
                 val favorites = libraryRepository.getFavoriteTracks()
+                val recent = favorites.take(6)
                 _uiState.update {
                     it.copy(
                         artists = artists,
                         playlists = playlists,
                         favorites = favorites,
                         favoritesCount = favorites.size,
+                        recentTracks = recent,
                         isLoading = false,
                         error = null
                     )
@@ -74,16 +77,18 @@ class HomeViewModel(
         }
     }
 
-    fun playPlaylist(playlist: PlaylistDto) {
-        val tracks = _uiState.value.favorites
-        val track = TrackDto(
-            id = playlist.id,
-            title = playlist.name,
-            artist = "Плейлист",
-            coverArt = playlist.coverArt
-        )
-        val queue = if (tracks.isNotEmpty()) tracks else listOf(track)
+    fun playRecentTrack(track: TrackDto) {
+        val queue = _uiState.value.recentTracks.ifEmpty { listOf(track) }
         playerController.playTrack(track, queue)
+    }
+
+    fun playPlaylist(playlist: PlaylistDto) {
+        viewModelScope.launch {
+            val tracks = libraryRepository.getPlaylistTracks(playlist.id)
+            if (tracks.isNotEmpty()) {
+                playerController.playTrack(tracks.first(), tracks)
+            }
+        }
     }
 
     fun playArtist(artist: ArtistDto) {
@@ -92,14 +97,6 @@ class HomeViewModel(
         }
         if (artistTracks.isNotEmpty()) {
             playerController.playTrack(artistTracks.first(), artistTracks)
-        } else {
-            val track = TrackDto(
-                id = artist.id,
-                title = artist.name,
-                artist = artist.name,
-                coverArt = artist.coverArt
-            )
-            playerController.playTrack(track, listOf(track))
         }
     }
 
