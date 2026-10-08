@@ -69,7 +69,8 @@ fun AppNavigation(
             try {
                 val favIds = libraryRepository.getFavoriteIds()
                 isCurrentTrackFavorite = favIds.track_ids.contains(currentId)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                android.util.Log.w("AppNavigation", "Failed to load favorite ids for track $currentId", e)
                 isCurrentTrackFavorite = playerState.currentTrack?.isFavorite ?: false
             }
         } else {
@@ -84,7 +85,8 @@ fun AppNavigation(
                 try {
                     val res = libraryRepository.toggleFavorite(currentId, "track")
                     isCurrentTrackFavorite = res.is_favorite
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    android.util.Log.e("AppNavigation", "Failed to toggle favorite for track $currentId", e)
                     isCurrentTrackFavorite = !isCurrentTrackFavorite
                 }
             }

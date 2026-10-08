@@ -136,4 +136,27 @@ class MoshiAdaptersTest {
         assertEquals("t1", track?.id)
         assertTrue(track?.isFavorite == true)
     }
+
+    @Test
+    fun parseSearchResponse_subsonicStyle() {
+        val json = """{"results":{"song":[{"id":"s1","title":"Song One","artist":"Artist"}],"album":[{"id":"al1","name":"Album One"}],"artist":[{"id":"ar1","name":"Artist One"}]}}"""
+        val response = moshi.adapter(com.coreplayer.app.data.model.SearchResponse::class.java).fromJson(json)
+        assertEquals(1, response?.tracks?.size)
+        assertEquals("s1", response?.tracks?.get(0)?.id)
+        assertEquals("Song One", response?.tracks?.get(0)?.title)
+        assertEquals(1, response?.albums?.size)
+        assertEquals("al1", response?.albums?.get(0)?.id)
+        assertEquals(1, response?.artists?.size)
+        assertEquals("ar1", response?.artists?.get(0)?.id)
+    }
+
+    @Test
+    fun parseSearchResponse_directLists() {
+        val json = """{"tracks":[{"id":"s2","title":"Song Two"}],"albums":[{"id":"al2","name":"Album Two"}]}"""
+        val response = moshi.adapter(com.coreplayer.app.data.model.SearchResponse::class.java).fromJson(json)
+        assertEquals(1, response?.tracks?.size)
+        assertEquals("s2", response?.tracks?.get(0)?.id)
+        assertEquals(1, response?.albums?.size)
+        assertEquals("al2", response?.albums?.get(0)?.id)
+    }
 }

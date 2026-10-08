@@ -5,11 +5,13 @@ import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.coreplayer.app.CorePlayerApp
 
 class PlaybackService : MediaSessionService() {
 
@@ -25,7 +27,8 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         val renderersFactory = DefaultRenderersFactory(this)
-        val mediaSourceFactory = DefaultMediaSourceFactory(this)
+        val dataSourceFactory = OkHttpDataSource.Factory(CorePlayerApp.instance.okHttpClient)
+        val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(dataSourceFactory)
 
         val player = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)

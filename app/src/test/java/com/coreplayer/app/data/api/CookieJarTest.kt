@@ -1,5 +1,8 @@
 package com.coreplayer.app.data.api
 
+import android.content.SharedPreferences
+import io.mockk.every
+import io.mockk.mockk
 import okhttp3.Cookie
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import org.junit.Assert.assertEquals
@@ -93,5 +96,58 @@ class CookieJarTest {
         val loaded = cookieJar.loadForRequest(url)
         assertTrue(loaded.isEmpty())
         assertFalse(cookieJar.hasSessionCookie())
+    }
+
+    @Test
+    fun persistentStorage_savesAndRestoresCookiesAcrossInstances() {
+        val storage = mutableMapOf<String, String?>()
+        val mockEditor = mockk<SharedPreferences.Editor>(relaxed = true)
+        every { mockEditor.putString(any(), any()) } answers {
+            val key = firstArg<String>()
+            val value = secondArg<String>()
+            storage[key] = value
+            mockEditor
+        }
+        every { mockEditor.remove(any()) } answers {
+            val key = firstArg<String>()
+            storage.remove(key)
+            mockEditor
+        }
+        every { mockEditor.apply() } returns Unit
+
+        val mockPrefs = mockk<SharedPreferences>(relaxed = true)
+        every { mockPrefs.getString(any(), any()) } answers {
+            val key = firstArg<String>()
+            val defValue = secondArg<String?>()
+            storage[key] ?: defValue
+        }
+        every { mockPrefs.edit() } returns mockEditor
+
+        // First instance saves cookie
+        val jar1 = InMemoryCookieJar(mockPrefs)
+        val cookie = Cookie.Builder()
+            .domain("localhost")
+            .path("/")
+            .name("session_id")
+            .value("persisted-token-456")
+            .expiresAt(System.currentTimeMillis() + 60_000)
+            .build()
+        jar1.saveFromResponse(url, listOf(cookie))
+
+        // Second instance created with same prefs restores cookie
+        val jar2 = InMemoryCookieJar(mockPrefs)
+        val loaded = jar2.loadForRequest(url)
+        assertEquals(1, loaded.size)
+        assertEquals("session_id", loaded[0].name)
+        assertEquals("persisted-token-456", loaded[0].value)
+        assertTrue(jar2.hasSessionCookie("session_id"))
+
+        // Clear removes from prefs
+        jar2.clear()
+        assertFalse(jar2.hasSessionCookie())
+
+        // Third instance finds empty
+        val jar3 = InMemoryCookieJar(mockPrefs)
+        assertTrue(jar3.loadForRequest(url).isEmpty())
     }
 }

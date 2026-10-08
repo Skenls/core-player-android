@@ -2,14 +2,17 @@ package com.coreplayer.app
 
 import android.app.Application
 import android.content.Context
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import com.coreplayer.app.data.api.CorePlayerApi
 import com.coreplayer.app.data.api.InMemoryCookieJar
 import com.coreplayer.app.data.repository.AuthRepository
 import com.coreplayer.app.data.repository.LibraryRepository
 import com.coreplayer.app.data.repository.LyricsRepository
 import com.coreplayer.app.player.PlayerControllerManager
+import okhttp3.OkHttpClient
 
-class CorePlayerApp : Application() {
+class CorePlayerApp : Application(), ImageLoaderFactory {
 
     companion object {
         lateinit var instance: CorePlayerApp
@@ -20,7 +23,13 @@ class CorePlayerApp : Application() {
         getSharedPreferences("core_player_prefs", Context.MODE_PRIVATE)
     }
 
-    val cookieJar = InMemoryCookieJar()
+    val cookieJar by lazy { InMemoryCookieJar(this) }
+
+    val okHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .cookieJar(cookieJar)
+            .build()
+    }
 
     lateinit var playerController: PlayerControllerManager
         private set
@@ -48,8 +57,15 @@ class CorePlayerApp : Application() {
         initRepositories(serverUrl)
     }
 
+    override fun newImageLoader(): ImageLoader {
+        return ImageLoader.Builder(this)
+            .okHttpClient(okHttpClient)
+            .crossfade(true)
+            .build()
+    }
+
     fun initRepositories(url: String) {
-        val api = CorePlayerApi.create(baseUrl = url, cookieJar = cookieJar)
+        val api = CorePlayerApi.create(baseUrl = url, cookieJar = cookieJar, okHttpClient = okHttpClient)
         authRepository = AuthRepository(api, cookieJar)
         libraryRepository = LibraryRepository(api)
         lyricsRepository = LyricsRepository(api)

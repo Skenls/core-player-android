@@ -12,6 +12,7 @@ import io.mockk.slot
 import io.mockk.unmockkAll
 import io.mockk.verify
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -277,5 +278,23 @@ class PlayerControllerManagerTest {
         verify { mockPlayer.setMediaItems(any(), 0, 0L) }
         verify { mockPlayer.prepare() }
         verify { mockPlayer.play() }
+    }
+
+    @Test
+    fun release_cancelsScopeAndDetachesPlayer() {
+        val isolatedScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined + kotlinx.coroutines.SupervisorJob())
+        val manager = PlayerControllerManager(
+            context = mockContext,
+            baseUrl = "http://localhost:8000",
+            coroutineScope = isolatedScope
+        )
+        manager.attachPlayer(mockPlayer)
+        assertTrue(isolatedScope.isActive)
+        assertNotNull(manager.player)
+
+        manager.release()
+
+        assertFalse(isolatedScope.isActive)
+        assertNull(manager.player)
     }
 }

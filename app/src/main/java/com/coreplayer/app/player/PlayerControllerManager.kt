@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -93,14 +94,14 @@ open class PlayerControllerManager(
                     try {
                         val mediaController = future.get()
                         attachPlayer(mediaController)
-                    } catch (_: Exception) {
-                        // Connection failed or cancelled
+                    } catch (e: Exception) {
+                        android.util.Log.w(TAG, "MediaController connection failed or cancelled", e)
                     }
                 },
                 ContextCompat.getMainExecutor(context)
             )
-        } catch (_: Exception) {
-            // Context or service unavailable (e.g. test environment)
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Context or service unavailable for MediaController", e)
         }
     }
 
@@ -276,11 +277,16 @@ open class PlayerControllerManager(
 
     fun release() {
         positionJob?.cancel()
+        coroutineScope.cancel()
         player?.removeListener(playerListener)
         controllerFuture?.let { future ->
             MediaController.releaseFuture(future)
             controllerFuture = null
         }
         player = null
+    }
+
+    companion object {
+        private const val TAG = "PlayerControllerManager"
     }
 }

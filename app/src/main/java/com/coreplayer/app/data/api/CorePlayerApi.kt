@@ -8,6 +8,7 @@ import com.coreplayer.app.data.model.FavoritesIdsResponse
 import com.coreplayer.app.data.model.LoginRequest
 import com.coreplayer.app.data.model.LyricsResponse
 import com.coreplayer.app.data.model.PlaylistDto
+import com.coreplayer.app.data.model.SearchResponse
 import com.coreplayer.app.data.model.TrackDto
 import com.coreplayer.app.data.model.UserDto
 import com.squareup.moshi.JsonAdapter
@@ -63,6 +64,11 @@ interface CorePlayerApi {
 
     @GET("api/library/favorites/tracks")
     suspend fun getFavoriteTracks(): List<TrackDto>
+
+    @GET("api/library/search")
+    suspend fun search(
+        @Query("q") query: String
+    ): SearchResponse
 
     @GET("api/lyrics/{track_id}")
     suspend fun getLyrics(

@@ -92,8 +92,8 @@ fun LibraryScreen(
             favorites = libraryRepository.getFavoriteTracks()
             playlists = libraryRepository.getPlaylists()
             albums = libraryRepository.getAlbums()
-        } catch (_: Exception) {
-            // Silently handle
+        } catch (e: Exception) {
+            android.util.Log.e("LibraryScreen", "Failed to load library data", e)
         } finally {
             isLoading = false
         }

@@ -105,6 +105,19 @@ class RepositoryTest {
         assertEquals("Line two", lyrics[1].text)
     }
 
+    @Test
+    fun libraryRepository_search_callsApiSearch() = runTest {
+        val results = libraryRepository.search("Karma")
+        assertEquals(1, results.size)
+        assertEquals("Karma Police", results[0].title)
+    }
+
+    @Test
+    fun libraryRepository_search_returnsEmptyForBlank() = runTest {
+        val results = libraryRepository.search("   ")
+        assertTrue(results.isEmpty())
+    }
+
     private class FakeCorePlayerApi : CorePlayerApi {
         override suspend fun login(request: LoginRequest): UserDto {
             return UserDto(id = "usr-${request.username}", username = request.username, role = "user")
@@ -140,6 +153,13 @@ class RepositoryTest {
 
         override suspend fun getFavoriteTracks(): List<TrackDto> {
             return listOf(TrackDto(id = "trk-1", title = "Paranoid Android", artist = "Radiohead", duration = 383))
+        }
+
+        override suspend fun search(query: String): com.coreplayer.app.data.model.SearchResponse {
+            val track = TrackDto(id = "trk-search-1", title = "Karma Police", artist = "Radiohead", duration = 260)
+            return com.coreplayer.app.data.model.SearchResponse(
+                tracksList = listOf(track)
+            )
         }
 
         override suspend fun getLyrics(

@@ -95,3 +95,41 @@ data class LyricLine(
     val timestampMs: Long,
     val text: String
 )
+
+data class SearchResponse(
+    @Json(name = "results") val results: SearchResultDto? = null,
+    @Json(name = "tracks") val tracksList: List<TrackDto>? = null,
+    @Json(name = "song") val songList: List<TrackDto>? = null,
+    @Json(name = "albums") val albumsList: List<AlbumDto>? = null,
+    @Json(name = "album") val albumList: List<AlbumDto>? = null,
+    @Json(name = "artists") val artistsList: List<ArtistDto>? = null,
+    @Json(name = "artist") val artistList: List<ArtistDto>? = null
+) {
+    val tracks: List<TrackDto>
+        get() = results?.songs ?: tracksList ?: songList ?: emptyList()
+
+    val albums: List<AlbumDto>
+        get() = results?.albums ?: albumsList ?: albumList ?: emptyList()
+
+    val artists: List<ArtistDto>
+        get() = results?.artists ?: artistsList ?: artistList ?: emptyList()
+}
+
+data class SearchResultDto(
+    @Json(name = "song") val songList: List<TrackDto>? = null,
+    @Json(name = "songs") val songsList: List<TrackDto>? = null,
+    @Json(name = "tracks") val tracksList: List<TrackDto>? = null,
+    @Json(name = "album") val albumList: List<AlbumDto>? = null,
+    @Json(name = "albums") val albumsList: List<AlbumDto>? = null,
+    @Json(name = "artist") val artistList: List<ArtistDto>? = null,
+    @Json(name = "artists") val artistsList: List<ArtistDto>? = null
+) {
+    val songs: List<TrackDto>
+        get() = songList ?: songsList ?: tracksList ?: emptyList()
+
+    val albums: List<AlbumDto>
+        get() = albumList ?: albumsList ?: emptyList()
+
+    val artists: List<ArtistDto>
+        get() = artistList ?: artistsList ?: emptyList()
+}

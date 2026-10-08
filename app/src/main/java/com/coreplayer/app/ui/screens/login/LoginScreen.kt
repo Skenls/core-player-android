@@ -94,7 +94,7 @@ fun LoginScreen(
     )
 
     fun handleLogin() {
-        if (username.isBlank() || password.isBlank()) {
+        if (username.isBlank() || password.isEmpty()) {
             errorMessage = "Заполните все поля"
             return
         }
@@ -105,9 +105,10 @@ fun LoginScreen(
             try {
                 val cleanUrl = serverUrl.trim()
                 onServerUrlChanged(cleanUrl)
-                CorePlayerApp.instance.authRepository.login(username.trim(), password.trim())
+                CorePlayerApp.instance.authRepository.login(username.trim(), password)
                 onLoginSuccess()
             } catch (e: Exception) {
+                android.util.Log.e("LoginScreen", "Login failed for user ${username.trim()}", e)
                 errorMessage = e.localizedMessage ?: "Не удалось подключиться к серверу"
             } finally {
                 isLoading = false

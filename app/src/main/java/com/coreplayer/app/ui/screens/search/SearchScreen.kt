@@ -83,7 +83,8 @@ fun SearchScreen(
         delay(300) // Debounce
         try {
             results = libraryRepository.search(trimmed)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.e("SearchScreen", "Search failed for query '$trimmed'", e)
             results = emptyList()
         } finally {
             isLoading = false

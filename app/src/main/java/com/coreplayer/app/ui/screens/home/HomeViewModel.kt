@@ -114,8 +114,11 @@ class HomeViewModel(
                         favoritesCount = updatedFavorites.size
                     )
                 }
-            } catch (_: Exception) {
-                // Silently handle error
+            } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Failed to toggle favorite for track $trackId", e)
+                _uiState.update {
+                    it.copy(error = e.localizedMessage ?: "Failed to update favorite")
+                }
             }
         }
     }

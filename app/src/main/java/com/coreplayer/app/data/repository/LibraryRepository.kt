@@ -1,5 +1,6 @@
 package com.coreplayer.app.data.repository
 
+import android.util.Log
 import com.coreplayer.app.data.api.CorePlayerApi
 import com.coreplayer.app.data.model.AlbumDto
 import com.coreplayer.app.data.model.ArtistDto
@@ -7,6 +8,7 @@ import com.coreplayer.app.data.model.FavoriteToggleRequest
 import com.coreplayer.app.data.model.FavoriteToggleResponse
 import com.coreplayer.app.data.model.FavoritesIdsResponse
 import com.coreplayer.app.data.model.PlaylistDto
+import com.coreplayer.app.data.model.SearchResponse
 import com.coreplayer.app.data.model.TrackDto
 
 class LibraryRepository(
@@ -28,11 +30,25 @@ class LibraryRepository(
 
     suspend fun search(query: String): List<TrackDto> {
         if (query.isBlank()) return emptyList()
-        val favorites = try { getFavoriteTracks() } catch (_: Exception) { emptyList() }
-        return favorites.filter {
-            it.title.contains(query, ignoreCase = true) ||
-            it.artist.contains(query, ignoreCase = true) ||
-            it.album.contains(query, ignoreCase = true)
+        return try {
+            api.search(query).tracks
+        } catch (e: Exception) {
+            Log.e(TAG, "Search failed for query: $query", e)
+            emptyList()
         }
+    }
+
+    suspend fun searchFull(query: String): SearchResponse {
+        if (query.isBlank()) return SearchResponse()
+        return try {
+            api.search(query)
+        } catch (e: Exception) {
+            Log.e(TAG, "Search full failed for query: $query", e)
+            SearchResponse()
+        }
+    }
+
+    companion object {
+        private const val TAG = "LibraryRepository"
     }
 }
