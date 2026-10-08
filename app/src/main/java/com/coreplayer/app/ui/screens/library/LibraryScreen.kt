@@ -289,7 +289,7 @@ fun LibraryScreenContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
         Row(
@@ -313,7 +313,7 @@ fun LibraryScreenContent(
 
         ScrollableTabRow(
             selectedTabIndex = selectedTabIndex,
-            containerColor = DarkBackground,
+            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
             contentColor = TextPrimary,
             edgePadding = 20.dp,
             indicator = { tabPositions ->

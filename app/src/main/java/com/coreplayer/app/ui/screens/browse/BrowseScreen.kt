@@ -91,6 +91,28 @@ fun BrowseScreen(
         }
     }
 
+    var selectedAlbumForDetail by remember { mutableStateOf<AlbumDto?>(null) }
+    var albumTracks by remember { mutableStateOf<List<TrackDto>>(emptyList()) }
+    var isLoadingAlbumTracks by remember { mutableStateOf(false) }
+
+    selectedAlbumForDetail?.let { album ->
+        AlbumDetailSheet(
+            album = album,
+            tracks = albumTracks,
+            isLoading = isLoadingAlbumTracks,
+            baseUrl = playerController.baseUrl,
+            onDismiss = { selectedAlbumForDetail = null },
+            onPlayTrack = { track, list ->
+                playerController.playTrack(track, list)
+            },
+            onPlayAll = {
+                if (albumTracks.isNotEmpty()) {
+                    playerController.playTrack(albumTracks.first(), albumTracks)
+                }
+            }
+        )
+    }
+
     BrowseScreenContent(
         selectedTabIndex = selectedTab,
         onTabSelected = { selectedTab = it },
@@ -103,10 +125,15 @@ fun BrowseScreen(
             playerController.playTrack(track, tracks)
         },
         onAlbumClick = { album ->
+            selectedAlbumForDetail = album
+            isLoadingAlbumTracks = true
             scope.launch {
-                val albumTracks = libraryRepository.getAlbumTracks(album.id)
-                if (albumTracks.isNotEmpty()) {
-                    playerController.playTrack(albumTracks.first(), albumTracks)
+                try {
+                    albumTracks = libraryRepository.getAlbumTracks(album.id)
+                } catch (e: Exception) {
+                    android.util.Log.e("BrowseScreen", "Failed to load album tracks", e)
+                } finally {
+                    isLoadingAlbumTracks = false
                 }
             }
         },
@@ -141,7 +168,7 @@ fun BrowseScreenContent(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
             .statusBarsPadding()
     ) {
         Text(
@@ -152,7 +179,7 @@ fun BrowseScreenContent(
 
         ScrollableTabRow(
             selectedTabIndex = selectedTabIndex,
-            containerColor = DarkBackground,
+            containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
             contentColor = TextPrimary,
             edgePadding = 20.dp,
             indicator = { tabPositions ->
@@ -215,8 +242,8 @@ fun BrowseScreenContent(
                                         subtitle = album.artist ?: "",
                                         coverUrl = resolveCoverUrl(album.coverArt, baseUrl),
                                         cardSize = 160.dp,
-                                        onClick = { onAlbumClick(album) },
-                                        onPlayClick = { onAlbumClick(album) }
+                                        showPlayButton = false,
+                                        onClick = { onAlbumClick(album) }
                                     )
                                 }
                             }

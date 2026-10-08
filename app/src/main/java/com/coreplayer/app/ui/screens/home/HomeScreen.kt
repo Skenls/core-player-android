@@ -101,6 +101,10 @@ fun HomeScreen(
             onBgModeSelected = { CorePlayerApp.instance.playerBackgroundMode = it },
             isAdaptiveBubbleEnabled = CorePlayerApp.instance.adaptiveBubbleColor,
             onAdaptiveBubbleChanged = { CorePlayerApp.instance.adaptiveBubbleColor = it },
+            isAmoledEnabled = CorePlayerApp.instance.amoledMode,
+            onAmoledChanged = { CorePlayerApp.instance.amoledMode = it },
+            isCrossfadeEnabled = CorePlayerApp.instance.crossfadeEnabled,
+            onCrossfadeChanged = { CorePlayerApp.instance.crossfadeEnabled = it },
             onLogout = {
                 showSettingsDialog = false
                 scope.launch {
@@ -146,7 +150,7 @@ fun HomeScreenContent(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
     ) {
         if (uiState.isLoading && uiState.artists.isEmpty() && uiState.playlists.isEmpty()) {
             CircularProgressIndicator(

@@ -35,6 +35,7 @@ open class PlayerControllerManager(
     private var currentQueue: List<TrackDto> = emptyList()
     private var positionJob: Job? = null
     private var pendingAction: (() -> Unit)? = null
+    private var isCrossfading = false
 
     private val playerListener = object : Player.Listener {
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -179,6 +180,28 @@ open class PlayerControllerManager(
                     val pos = p.currentPosition.coerceAtLeast(0L)
                     val dur = if (p.duration > 0L) p.duration else _state.value.durationMs
                     _state.update { it.copy(currentPositionMs = pos, durationMs = dur) }
+
+                    val isCrossfade = try { com.coreplayer.app.CorePlayerApp.instance.crossfadeEnabled } catch (_: Exception) { true }
+                    if (isCrossfade && dur > 12000L && pos >= dur - 4000L && !isCrossfading) {
+                        val next = getNextTrackInQueue()
+                        val svc = PlaybackService.instance
+                        if (next != null && svc != null) {
+                            isCrossfading = true
+                            val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
+                            val mediaItem = next.toMediaItem(baseUrl, codec)
+                            _state.update {
+                                it.copy(
+                                    currentTrack = next,
+                                    currentPositionMs = 0L,
+                                    durationMs = (next.duration * 1000L).coerceAtLeast(0L),
+                                    isPlaying = true
+                                )
+                            }
+                            svc.crossfadeTo(mediaItem, 3500L) {
+                                isCrossfading = false
+                            }
+                        }
+                    }
                 }
                 delay(500)
             }
@@ -272,7 +295,79 @@ open class PlayerControllerManager(
         _state.update { it.copy(currentPositionMs = validPos) }
     }
 
+    fun getNextTrackInQueue(): TrackDto? {
+        val queue = currentQueue
+        if (queue.isEmpty()) return null
+        val currentTrack = _state.value.currentTrack
+        val currentIndex = if (currentTrack != null) {
+            queue.indexOfFirst { it.id == currentTrack.id }
+        } else {
+            player?.currentMediaItemIndex ?: -1
+        }.let { if (it >= 0) it else 0 }
+
+        val isShuffle = player?.shuffleModeEnabled ?: _state.value.shuffleModeEnabled
+        val isRepeatAll = (player?.repeatMode == Player.REPEAT_MODE_ALL) || _state.value.repeatMode == RepeatMode.ALL
+
+        if (isShuffle && queue.size > 1) {
+            val candidates = queue.indices.filter { it != currentIndex }
+            val nextIndex = candidates.randomOrNull() ?: 0
+            return queue.getOrNull(nextIndex)
+        }
+
+        if (currentIndex in 0 until queue.size - 1) {
+            return queue[currentIndex + 1]
+        }
+
+        if (isRepeatAll && queue.isNotEmpty()) {
+            return queue[0]
+        }
+
+        return null
+    }
+
+    fun getPreviousTrackInQueue(): TrackDto? {
+        val queue = currentQueue
+        if (queue.isEmpty()) return null
+        val currentTrack = _state.value.currentTrack
+        val currentIndex = if (currentTrack != null) {
+            queue.indexOfFirst { it.id == currentTrack.id }
+        } else {
+            player?.currentMediaItemIndex ?: -1
+        }.let { if (it >= 0) it else 0 }
+
+        if (currentIndex > 0) {
+            return queue[currentIndex - 1]
+        }
+
+        val isRepeatAll = (player?.repeatMode == Player.REPEAT_MODE_ALL) || _state.value.repeatMode == RepeatMode.ALL
+        if (isRepeatAll && queue.isNotEmpty()) {
+            return queue.last()
+        }
+
+        return null
+    }
+
     fun skipNext() {
+        val isCrossfade = try { com.coreplayer.app.CorePlayerApp.instance.crossfadeEnabled } catch (_: Exception) { true }
+        val next = getNextTrackInQueue()
+        val svc = PlaybackService.instance
+        if (isCrossfade && next != null && svc != null) {
+            val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
+            val mediaItem = next.toMediaItem(baseUrl, codec)
+            _state.update {
+                it.copy(
+                    currentTrack = next,
+                    currentPositionMs = 0L,
+                    durationMs = (next.duration * 1000L).coerceAtLeast(0L),
+                    isPlaying = true
+                )
+            }
+            svc.crossfadeTo(mediaItem, 1000L) {
+                isCrossfading = false
+            }
+            return
+        }
+
         val p = player ?: return
         val queue = currentQueue
 
@@ -348,9 +443,6 @@ open class PlayerControllerManager(
             p.play()
             return
         }
-
-        // Otherwise (last track, repeat OFF, shuffle OFF):
-        // Does not advance past the end of the queue.
     }
 
     fun skipPrevious() {
@@ -358,6 +450,26 @@ open class PlayerControllerManager(
         if (p.currentPosition > 3000L) {
             p.seekTo(0L)
             _state.update { it.copy(currentPositionMs = 0L) }
+            return
+        }
+
+        val isCrossfade = try { com.coreplayer.app.CorePlayerApp.instance.crossfadeEnabled } catch (_: Exception) { true }
+        val prev = getPreviousTrackInQueue()
+        val svc = PlaybackService.instance
+        if (isCrossfade && prev != null && svc != null) {
+            val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
+            val mediaItem = prev.toMediaItem(baseUrl, codec)
+            _state.update {
+                it.copy(
+                    currentTrack = prev,
+                    currentPositionMs = 0L,
+                    durationMs = (prev.duration * 1000L).coerceAtLeast(0L),
+                    isPlaying = true
+                )
+            }
+            svc.crossfadeTo(mediaItem, 1000L) {
+                isCrossfading = false
+            }
             return
         }
 

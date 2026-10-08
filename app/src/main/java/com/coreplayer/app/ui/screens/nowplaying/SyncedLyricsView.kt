@@ -1,5 +1,7 @@
 package com.coreplayer.app.ui.screens.nowplaying
 
+import android.os.Build
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
@@ -31,7 +33,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
@@ -39,7 +43,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
 import com.coreplayer.app.data.model.LyricLine
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.TextPrimary
@@ -136,20 +139,22 @@ fun SyncedLyricsView(
 
     val listState = rememberLazyListState()
 
-    // Smooth auto-scroll to active line
+    // Smooth auto-scroll to active line, centering it in view
     LaunchedEffect(activeIndex) {
         if (activeIndex in lyrics.indices) {
+            val viewportHeight = listState.layoutInfo.viewportSize.height
+            val centerOffset = if (viewportHeight > 0) -(viewportHeight / 3) else 0
             listState.animateScrollToItem(
                 index = activeIndex,
-                scrollOffset = 0
+                scrollOffset = centerOffset
             )
         }
     }
 
     LazyColumn(
         state = listState,
-        contentPadding = PaddingValues(top = 40.dp, bottom = 48.dp, start = 20.dp, end = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(top = 70.dp, bottom = 120.dp, start = 20.dp, end = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier.fillMaxSize()
     ) {
         itemsIndexed(
@@ -159,7 +164,7 @@ fun SyncedLyricsView(
             val isActive = index == activeIndex
 
             val alpha by animateFloatAsState(
-                targetValue = if (isActive) 1f else 0.4f,
+                targetValue = if (isActive) 1f else 0.32f,
                 animationSpec = spring(),
                 label = "lyricAlpha_$index"
             )
@@ -170,9 +175,22 @@ fun SyncedLyricsView(
                 label = "lyricScale_$index"
             )
 
+            val blurRadius by animateDpAsState(
+                targetValue = if (isActive) 0.dp else 2.5.dp,
+                animationSpec = spring(),
+                label = "lyricBlur_$index"
+            )
+
+            val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.dp) {
+                Modifier.blur(blurRadius)
+            } else {
+                Modifier
+            }
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .then(blurModifier)
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
@@ -189,9 +207,9 @@ fun SyncedLyricsView(
                 Text(
                     text = line.text.ifBlank { "♪" },
                     color = TextPrimary.copy(alpha = alpha),
-                    fontSize = if (isActive) 22.sp else 19.sp,
+                    fontSize = if (isActive) 23.sp else 19.sp,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                    lineHeight = if (isActive) 30.sp else 26.sp,
+                    lineHeight = if (isActive) 32.sp else 26.sp,
                     textAlign = TextAlign.Start
                 )
             }

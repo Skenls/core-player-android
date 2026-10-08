@@ -97,6 +97,28 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
             adaptiveBubbleFlow.value = value
         }
 
+    val amoledFlow by lazy {
+        kotlinx.coroutines.flow.MutableStateFlow(amoledMode)
+    }
+
+    var amoledMode: Boolean
+        get() = prefs.getBoolean("amoled_mode", false)
+        set(value) {
+            prefs.edit().putBoolean("amoled_mode", value).apply()
+            amoledFlow.value = value
+        }
+
+    val crossfadeFlow by lazy {
+        kotlinx.coroutines.flow.MutableStateFlow(crossfadeEnabled)
+    }
+
+    var crossfadeEnabled: Boolean
+        get() = prefs.getBoolean("crossfade_enabled", true)
+        set(value) {
+            prefs.edit().putBoolean("crossfade_enabled", value).apply()
+            crossfadeFlow.value = value
+        }
+
     fun updateCodec(newCodec: String) {
         audioCodec = newCodec
         if (::playerController.isInitialized) {

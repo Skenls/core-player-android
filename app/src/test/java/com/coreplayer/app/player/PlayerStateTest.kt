@@ -139,4 +139,20 @@ class PlayerStateTest {
 
         assertNull(mediaItem.mediaMetadata.artworkUri)
     }
+
+    @Test
+    fun queueNavigation_progressesSequentially() {
+        val t1 = TrackDto(id = "1", title = "Song 1", artist = "Artist", album = "Album", duration = 120)
+        val t2 = TrackDto(id = "2", title = "Song 2", artist = "Artist", album = "Album", duration = 180)
+        val queue = listOf(t1, t2)
+
+        val idx1 = queue.indexOfFirst { it.id == t1.id }
+        assertEquals(0, idx1)
+        val nextTrack = queue.getOrNull(idx1 + 1)
+        assertEquals(t2, nextTrack)
+
+        val idx2 = queue.indexOfFirst { it.id == t2.id }
+        val endTrack = queue.getOrNull(idx2 + 1)
+        assertNull(endTrack)
+    }
 }

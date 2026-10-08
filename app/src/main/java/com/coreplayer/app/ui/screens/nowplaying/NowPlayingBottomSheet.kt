@@ -88,6 +88,7 @@ import com.coreplayer.app.ui.theme.DarkSurfaceVariant
 import com.coreplayer.app.ui.theme.SubtleDivider
 import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
+import com.coreplayer.app.ui.util.cleanArtistName
 
 /**
  * Resolves the artwork URL against the server base URL using ImageUtils.
@@ -127,7 +128,7 @@ fun NowPlayingBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = DarkBackground,
+        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
         scrimColor = Color.Black.copy(alpha = 0.7f),
         dragHandle = null,
         modifier = modifier.fillMaxSize()
@@ -250,10 +251,11 @@ fun NowPlayingContent(
     val displayedPositionMs = if (isSeeking) seekPositionMs.toLong() else playerState.currentPositionMs
     val backgroundMode = try { com.coreplayer.app.CorePlayerApp.instance.playerBackgroundMode } catch (_: Exception) { "cover" }
 
+    val contentBg = androidx.compose.material3.MaterialTheme.colorScheme.background
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(contentBg)
     ) {
         // Dynamic background blur layer from album artwork (respects backgroundMode setting)
         if (backgroundMode == "cover" && !coverUrl.isNullOrBlank()) {
@@ -269,7 +271,7 @@ fun NowPlayingContent(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(DarkBackground.copy(alpha = 0.82f))
+                    .background(contentBg.copy(alpha = 0.82f))
             )
         }
 
@@ -304,15 +306,20 @@ fun NowPlayingContent(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = "СЕЙЧАС ИГРАЕТ",
+                        text = "ИГРАЕТ ИЗ",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = TextSecondary,
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(2.dp))
+                    val sourceContext = if (!track?.album.isNullOrBlank()) {
+                        "Альбом «${track.album}»"
+                    } else {
+                        "Медиатека"
+                    }
                     Text(
-                        text = track?.album?.ifBlank { "Core Player" } ?: "Core Player",
+                        text = sourceContext,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = TextPrimary,
@@ -429,7 +436,7 @@ fun NowPlayingContent(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = track?.artist?.ifBlank { "Неизвестный исполнитель" } ?: "",
+                            text = cleanArtistName(track?.artist).ifBlank { "Неизвестный исполнитель" },
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Normal,
                             color = TextSecondary,

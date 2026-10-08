@@ -90,10 +90,11 @@ fun BottomNavBar(
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isAmoled = com.coreplayer.app.ui.theme.LocalAmoledMode.current
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF080C14))
+            .background(if (isAmoled) Color.Black else Color(0xFF080C14))
             .navigationBarsPadding()
     ) {
         Row(

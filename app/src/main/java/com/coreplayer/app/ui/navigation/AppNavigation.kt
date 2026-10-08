@@ -132,7 +132,7 @@ fun AppNavigation(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = DarkBackground,
+        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.background,
         bottomBar = {
             if (isBottomBarVisible) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -143,6 +143,8 @@ fun AppNavigation(
                             isFavorite = isCurrentTrackFavorite,
                             onTogglePlayPause = { playerController.togglePlayPause() },
                             onToggleFavorite = toggleFavorite,
+                            onSkipNext = { playerController.skipNext() },
+                            onSkipPrevious = { playerController.skipPrevious() },
                             onClick = { showNowPlayingSheet = true },
                             baseUrl = playerController.baseUrl,
                             isAdaptiveColorEnabled = isAdaptiveBubbleEnabled

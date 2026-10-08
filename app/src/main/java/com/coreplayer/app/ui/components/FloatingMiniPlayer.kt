@@ -1,16 +1,16 @@
 package com.coreplayer.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +35,9 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +47,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,9 +57,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.coreplayer.app.data.model.TrackDto
 import com.coreplayer.app.player.PlayerState
-import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.TextPrimary
+import com.coreplayer.app.ui.util.cleanArtistName
+import com.coreplayer.app.ui.util.rememberAdaptivePalette
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 /**
  * Floating pill-shaped mini-player capsule strictly matching the mockup in `helpers/`.
@@ -66,6 +73,8 @@ import com.coreplayer.app.ui.theme.TextPrimary
  * - Circular progress ring around the white play button filling with playback
  * - White title + silver artist text
  * - Clean white outlined heart icon (or filled red when favorited)
+ * - Swipe gestures: horizontal swipe to switch tracks with slide animation;
+ *   vertical swipe up to expand player with zoom/elevation animation.
  */
 @Composable
 fun FloatingMiniPlayer(
@@ -77,11 +86,13 @@ fun FloatingMiniPlayer(
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onSkipNext: (() -> Unit)? = null,
+    onSkipPrevious: (() -> Unit)? = null,
     progress: Float = 0f,
     coverArtUrl: String? = null,
     isAdaptiveColorEnabled: Boolean = true
 ) {
-    val palette by com.coreplayer.app.ui.util.rememberAdaptivePalette(if (isAdaptiveColorEnabled) coverArtUrl else null)
+    val palette by rememberAdaptivePalette(if (isAdaptiveColorEnabled) coverArtUrl else null)
     val startColor by animateColorAsState(targetValue = palette.primary, animationSpec = tween(500), label = "palStart")
     val endColor by animateColorAsState(targetValue = palette.secondary, animationSpec = tween(500), label = "palEnd")
 
@@ -118,12 +129,25 @@ fun FloatingMiniPlayer(
         label = "miniPlayerProgress"
     )
 
+    val coroutineScope = rememberCoroutineScope()
+    val animOffsetX = remember { Animatable(0f) }
+    val animOffsetY = remember { Animatable(0f) }
+    val animScale = remember { Animatable(1f) }
+
+    var dragDirection by remember { mutableStateOf<String?>(null) } // "H" or "V"
+    var totalDragX by remember { mutableFloatStateOf(0f) }
     var totalDragY by remember { mutableFloatStateOf(0f) }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp)
+            .graphicsLayer {
+                translationX = animOffsetX.value
+                translationY = animOffsetY.value
+                scaleX = animScale.value
+                scaleY = animScale.value
+            }
             .shadow(
                 elevation = 14.dp,
                 shape = CircleShape,
@@ -136,19 +160,82 @@ fun FloatingMiniPlayer(
                 border = BorderStroke(1.dp, Color(0x38FFFFFF)),
                 shape = CircleShape
             )
-            .draggable(
-                orientation = Orientation.Vertical,
-                state = rememberDraggableState { delta ->
-                    totalDragY += delta
-                },
-                onDragStopped = { velocity ->
-                    // Swiping upwards produces negative delta / velocity
-                    if (totalDragY < -20f || velocity < -100f) {
-                        onClick()
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = {
+                        dragDirection = null
+                        totalDragX = 0f
+                        totalDragY = 0f
+                    },
+                    onDragEnd = {
+                        coroutineScope.launch {
+                            if (dragDirection == "V" && totalDragY < -30f) {
+                                // Swipe up: animate expanding transition into full player
+                                animOffsetY.animateTo(-50f, tween(150))
+                                animScale.animateTo(1.08f, tween(150))
+                                onClick()
+                                animOffsetY.snapTo(0f)
+                                animScale.snapTo(1f)
+                            } else if (dragDirection == "H" && totalDragX < -50f && onSkipNext != null) {
+                                // Swipe left: animate slide out to left, invoke next, slide in from right
+                                animOffsetX.animateTo(-600f, tween(160))
+                                onSkipNext()
+                                animOffsetX.snapTo(600f)
+                                animOffsetX.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 400f))
+                            } else if (dragDirection == "H" && totalDragX > 50f && onSkipPrevious != null) {
+                                // Swipe right: animate slide out to right, invoke previous, slide in from left
+                                animOffsetX.animateTo(600f, tween(160))
+                                onSkipPrevious()
+                                animOffsetX.snapTo(-600f)
+                                animOffsetX.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 400f))
+                            } else {
+                                // Reset to resting position
+                                animOffsetX.animateTo(0f, spring())
+                                animOffsetY.animateTo(0f, spring())
+                                animScale.animateTo(1f, spring())
+                            }
+                            dragDirection = null
+                            totalDragX = 0f
+                            totalDragY = 0f
+                        }
+                    },
+                    onDragCancel = {
+                        coroutineScope.launch {
+                            animOffsetX.animateTo(0f, spring())
+                            animOffsetY.animateTo(0f, spring())
+                            animScale.animateTo(1f, spring())
+                            dragDirection = null
+                            totalDragX = 0f
+                            totalDragY = 0f
+                        }
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        totalDragX += dragAmount.x
+                        totalDragY += dragAmount.y
+
+                        if (dragDirection == null) {
+                            if (abs(totalDragX) > 15f && abs(totalDragX) > abs(totalDragY)) {
+                                dragDirection = "H"
+                            } else if (totalDragY < -15f) {
+                                dragDirection = "V"
+                            }
+                        }
+
+                        if (dragDirection == "H") {
+                            coroutineScope.launch {
+                                animOffsetX.snapTo(totalDragX)
+                            }
+                        } else if (dragDirection == "V" && totalDragY < 0f) {
+                            coroutineScope.launch {
+                                animOffsetY.snapTo(totalDragY.coerceAtLeast(-60f))
+                                val scaleVal = 1f + (-totalDragY / 300f).coerceIn(0f, 0.08f)
+                                animScale.snapTo(scaleVal)
+                            }
+                        }
                     }
-                    totalDragY = 0f
-                }
-            )
+                )
+            }
             .clickable(
                 role = Role.Button,
                 onClick = onClick
@@ -162,7 +249,6 @@ fun FloatingMiniPlayer(
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left: Play/Pause button surrounded by an orange circular progress ring
-            // filling up according to current playback position (0% -> 100%)
             Box(
                 modifier = Modifier
                     .size(48.dp)
@@ -277,20 +363,25 @@ fun FloatingMiniPlayer(
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onSkipNext: (() -> Unit)? = null,
+    onSkipPrevious: (() -> Unit)? = null,
     progress: Float = 0f,
     baseUrl: String = "",
     isAdaptiveColorEnabled: Boolean = true
 ) {
     val coverUrl = com.coreplayer.app.ui.util.resolveCoverUrl(track.coverArt, baseUrl)
+    val cleanedArtist = cleanArtistName(track.artist).ifBlank { "Неизвестный исполнитель" }
     FloatingMiniPlayer(
         trackTitle = track.title,
-        artistName = track.artist.ifBlank { "Неизвестный исполнитель" },
+        artistName = cleanedArtist,
         isPlaying = isPlaying,
         isFavorite = isFavorite,
         onTogglePlayPause = onTogglePlayPause,
         onToggleFavorite = onToggleFavorite,
         onClick = onClick,
         modifier = modifier,
+        onSkipNext = onSkipNext,
+        onSkipPrevious = onSkipPrevious,
         progress = progress,
         coverArtUrl = coverUrl,
         isAdaptiveColorEnabled = isAdaptiveColorEnabled
@@ -309,6 +400,8 @@ fun FloatingMiniPlayer(
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onSkipNext: (() -> Unit)? = null,
+    onSkipPrevious: (() -> Unit)? = null,
     baseUrl: String = "",
     isAdaptiveColorEnabled: Boolean = true
 ) {
@@ -322,6 +415,8 @@ fun FloatingMiniPlayer(
         onToggleFavorite = onToggleFavorite,
         onClick = onClick,
         modifier = modifier,
+        onSkipNext = onSkipNext,
+        onSkipPrevious = onSkipPrevious,
         baseUrl = baseUrl,
         isAdaptiveColorEnabled = isAdaptiveColorEnabled
     )
