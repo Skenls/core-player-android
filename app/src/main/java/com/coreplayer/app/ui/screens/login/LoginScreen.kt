@@ -105,7 +105,7 @@ fun LoginScreen(
             try {
                 val cleanUrl = serverUrl.trim()
                 onServerUrlChanged(cleanUrl)
-                authRepository.login(username.trim(), password.trim())
+                CorePlayerApp.instance.authRepository.login(username.trim(), password.trim())
                 onLoginSuccess()
             } catch (e: Exception) {
                 errorMessage = e.localizedMessage ?: "Не удалось подключиться к серверу"

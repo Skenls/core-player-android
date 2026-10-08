@@ -21,10 +21,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -50,6 +53,7 @@ import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CoreLogoStyle
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.DarkBackground
+import com.coreplayer.app.ui.theme.DarkSurfaceVariant
 import com.coreplayer.app.ui.theme.SectionTitleStyle
 import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
@@ -61,6 +65,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onNavigateToFavorites: () -> Unit = {},
     onNavigateToPlaylists: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.Factory(libraryRepository, playerController)
     )
@@ -76,6 +81,7 @@ fun HomeScreen(
         onPlaylistClick = { viewModel.playPlaylist(it) },
         onPlaylistPlayClick = { viewModel.playPlaylist(it) },
         onPlaylistsHeaderClick = onNavigateToPlaylists,
+        onNavigateToSettings = onNavigateToSettings,
         onRetry = { viewModel.refresh() },
         modifier = modifier
     )
@@ -91,6 +97,7 @@ fun HomeScreenContent(
     onPlaylistClick: (PlaylistDto) -> Unit,
     onPlaylistPlayClick: (PlaylistDto) -> Unit,
     onPlaylistsHeaderClick: () -> Unit,
+    onNavigateToSettings: () -> Unit = {},
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -123,6 +130,13 @@ fun HomeScreenContent(
                 ) {
                     Text(text = "Повторить", color = TextPrimary)
                 }
+                Spacer(modifier = Modifier.height(12.dp))
+                androidx.compose.material3.OutlinedButton(
+                    onClick = onNavigateToSettings,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+                ) {
+                    Text(text = "Настройки сервера", color = TextSecondary)
+                }
             }
         } else {
             Column(
@@ -132,12 +146,32 @@ fun HomeScreenContent(
                     .statusBarsPadding()
                     .padding(bottom = 24.dp)
             ) {
-                // 1. Header: bold "core" logo in top-left
-                Text(
-                    text = "core",
-                    style = CoreLogoStyle,
-                    modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp)
-                )
+                // 1. Header: bold "core" logo in top-left with settings/account button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "core",
+                        style = CoreLogoStyle
+                    )
+                    IconButton(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(DarkSurfaceVariant, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Настройки сервера",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
 
                 // 2. "Недавние артисты" section
                 if (uiState.artists.isNotEmpty()) {

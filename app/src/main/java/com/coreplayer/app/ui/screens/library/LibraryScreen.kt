@@ -77,9 +77,10 @@ enum class LibraryTab(val title: String) {
 fun LibraryScreen(
     libraryRepository: LibraryRepository,
     playerController: PlayerControllerManager,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialTab: Int = 0
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab) }
     var favorites by remember { mutableStateOf<List<TrackDto>>(emptyList()) }
     var playlists by remember { mutableStateOf<List<PlaylistDto>>(emptyList()) }
     var albums by remember { mutableStateOf<List<AlbumDto>>(emptyList()) }
@@ -137,7 +138,7 @@ fun LibraryScreenContent(
     onAlbumClick: (AlbumDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val tabs = LibraryTab.values()
+    val tabs = LibraryTab.entries
 
     Column(
         modifier = modifier

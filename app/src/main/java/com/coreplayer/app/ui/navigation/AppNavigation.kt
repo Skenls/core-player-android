@@ -16,10 +16,12 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.coreplayer.app.CorePlayerApp
 import com.coreplayer.app.data.repository.AuthRepository
 import com.coreplayer.app.data.repository.LibraryRepository
@@ -89,11 +91,11 @@ fun AppNavigation(
         }
     }
 
-    val isBottomBarVisible = currentRoute in listOf(
-        Screen.Home.route,
-        Screen.Search.route,
-        Screen.Library.route
-    )
+    val isBottomBarVisible = currentRoute != Screen.Login.route
+    val activeNavRoute = when {
+        currentRoute.startsWith("library") -> Screen.Library.route
+        else -> currentRoute
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -113,9 +115,9 @@ fun AppNavigation(
                     }
 
                     BottomNavBar(
-                        currentRoute = currentRoute,
+                        currentRoute = activeNavRoute,
                         onNavigate = { route ->
-                            if (route != currentRoute) {
+                            if (route != activeNavRoute) {
                                 navController.navigate(route) {
                                     popUpTo(navController.graph.findStartDestination().id) {
                                         saveState = true
@@ -151,7 +153,7 @@ fun AppNavigation(
                     libraryRepository = libraryRepository,
                     playerController = playerController,
                     onNavigateToFavorites = {
-                        navController.navigate(Screen.Library.route) {
+                        navController.navigate("library?tab=0") {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
                             }
@@ -160,13 +162,16 @@ fun AppNavigation(
                         }
                     },
                     onNavigateToPlaylists = {
-                        navController.navigate(Screen.Library.route) {
+                        navController.navigate("library?tab=1") {
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
                             }
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Login.route)
                     }
                 )
             }
@@ -178,10 +183,20 @@ fun AppNavigation(
                 )
             }
 
-            composable(Screen.Library.route) {
+            composable(
+                route = "library?tab={tab}",
+                arguments = listOf(
+                    navArgument("tab") {
+                        defaultValue = 0
+                        type = NavType.IntType
+                    }
+                )
+            ) { backStackEntry ->
+                val tab = backStackEntry.arguments?.getInt("tab") ?: 0
                 LibraryScreen(
                     libraryRepository = libraryRepository,
-                    playerController = playerController
+                    playerController = playerController,
+                    initialTab = tab
                 )
             }
         }
