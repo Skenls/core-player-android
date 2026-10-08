@@ -172,8 +172,10 @@ fun AppNavigation(
                             restoreState = true
                         }
                     },
-                    onNavigateToSettings = {
-                        navController.navigate(Screen.Login.route)
+                    onLogout = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 )
             }

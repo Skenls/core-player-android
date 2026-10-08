@@ -193,7 +193,8 @@ open class PlayerControllerManager(
 
         val action: () -> Unit = {
             val startIndex = currentQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
-            val mediaItems = currentQueue.map { it.toMediaItem(baseUrl) }
+            val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (e: Exception) { "auto" }
+            val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, codec) }
 
             player?.run {
                 setMediaItems(mediaItems, startIndex, 0L)

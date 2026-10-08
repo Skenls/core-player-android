@@ -54,9 +54,13 @@ data class PlayerState(
         get() = formatTime(durationMs)
 }
 
-fun TrackDto.toMediaItem(baseUrl: String): MediaItem {
+fun TrackDto.toMediaItem(baseUrl: String, codec: String = "auto"): MediaItem {
     val cleanBaseUrl = baseUrl.trimEnd('/')
-    val streamUri = "$cleanBaseUrl/api/stream/$id"
+    val streamUri = if (codec.isBlank() || codec == "auto" || codec == "raw") {
+        "$cleanBaseUrl/api/stream/$id"
+    } else {
+        "$cleanBaseUrl/api/stream/$id?format=$codec"
+    }
 
     val artworkUriString = coverArt?.let { art ->
         if (art.startsWith("http://") || art.startsWith("https://")) {

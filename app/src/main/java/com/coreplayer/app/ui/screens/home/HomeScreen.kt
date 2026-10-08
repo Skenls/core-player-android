@@ -32,7 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -59,19 +61,51 @@ import com.coreplayer.app.ui.theme.SectionTitleStyle
 import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
 
+import com.coreplayer.app.CorePlayerApp
+import com.coreplayer.app.data.repository.AuthRepository
+import com.coreplayer.app.ui.screens.settings.SettingsDialog
+import kotlinx.coroutines.launch
+
 @Composable
 fun HomeScreen(
     libraryRepository: LibraryRepository,
     playerController: PlayerControllerManager,
     modifier: Modifier = Modifier,
+    authRepository: AuthRepository = CorePlayerApp.instance.authRepository,
     onNavigateToFavorites: () -> Unit = {},
     onNavigateToPlaylists: () -> Unit = {},
-    onNavigateToSettings: () -> Unit = {},
+    onLogout: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.Factory(libraryRepository, playerController)
     )
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentUser by authRepository.currentUser.collectAsStateWithLifecycle()
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        try {
+            authRepository.getCurrentUser()
+        } catch (_: Exception) {}
+    }
+
+    if (showSettingsDialog) {
+        SettingsDialog(
+            username = currentUser?.username ?: "Пользователь",
+            serverUrl = CorePlayerApp.instance.serverUrl,
+            selectedCodec = CorePlayerApp.instance.audioCodec,
+            onCodecSelected = { CorePlayerApp.instance.audioCodec = it },
+            onLogout = {
+                showSettingsDialog = false
+                scope.launch {
+                    authRepository.logout()
+                    onLogout()
+                }
+            },
+            onDismiss = { showSettingsDialog = false }
+        )
+    }
 
     HomeScreenContent(
         uiState = uiState,
@@ -82,7 +116,7 @@ fun HomeScreen(
         onPlaylistClick = { viewModel.playPlaylist(it) },
         onPlaylistPlayClick = { viewModel.playPlaylist(it) },
         onPlaylistsHeaderClick = onNavigateToPlaylists,
-        onNavigateToSettings = onNavigateToSettings,
+        onNavigateToSettings = { showSettingsDialog = true },
         onRetry = { viewModel.refresh() },
         modifier = modifier
     )

@@ -50,6 +50,12 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
             initRepositories(value)
         }
 
+    var audioCodec: String
+        get() = prefs.getString("audio_codec", "auto") ?: "auto"
+        set(value) {
+            prefs.edit().putString("audio_codec", value).apply()
+        }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
