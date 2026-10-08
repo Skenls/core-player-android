@@ -95,23 +95,11 @@ git commit -m "feat: add data models, LRC parser, Retrofit API and repositories"
 - Consumes: Android System MediaSession & ExoPlayer
 - Produces: `PlayerControllerManager` exposing `StateFlow<PlayerState>`, `playTrack(track: TrackDto)`, `togglePlayPause()`, `seekTo(positionMs: Long)`, `skipNext()`, `skipPrevious()`
 
-- [ ] **Step 1: Write unit test for PlayerState transitions**
-
-Verify calculation of progress, current track, and playback states.
-
-- [ ] **Step 2: Implement `PlaybackService` extending `MediaSessionService`**
-
-Configure ExoPlayer with `DefaultRenderersFactory`, `DefaultMediaSourceFactory`, and AudioAttributes for music playback.
-
-- [ ] **Step 3: Implement `PlayerControllerManager`**
-
-Manage `MediaController` connection lifecycle from UI to `PlaybackService`, emit `PlayerState` updates via `MutableStateFlow`.
-
-- [ ] **Step 4: Run unit tests**
-
-Verify player state logic with `./gradlew testDebugUnitTest --tests "com.coreplayer.app.player.*"`.
-
-- [ ] **Step 5: Commit audio service**
+- [x] **Step 1: Write unit test for PlayerState transitions**
+- [x] **Step 2: Implement `PlaybackService` extending `MediaSessionService`**
+- [x] **Step 3: Implement `PlayerControllerManager`**
+- [x] **Step 4: Run unit tests**
+- [x] **Step 5: Commit audio service**
 
 ```bash
 git add app/src/main/java/com/coreplayer/app/player/ app/src/test/java/com/coreplayer/app/player/
