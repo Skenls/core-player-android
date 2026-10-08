@@ -24,8 +24,10 @@ import okhttp3.ResponseBody
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 import java.lang.reflect.ParameterizedType
@@ -60,6 +62,34 @@ interface CorePlayerApi {
 
     @GET("api/library/playlists")
     suspend fun getPlaylists(): List<PlaylistDto>
+
+    @POST("api/library/playlists")
+    suspend fun createPlaylist(
+        @Body body: com.coreplayer.app.data.model.CreatePlaylistRequest
+    ): com.coreplayer.app.data.model.CreatePlaylistResponse
+
+    @DELETE("api/library/playlists/{playlist_id}")
+    suspend fun deletePlaylist(
+        @Path("playlist_id") playlistId: String
+    ): com.coreplayer.app.data.model.GenericMessageResponse
+
+    @POST("api/library/playlists/{playlist_id}/tracks")
+    suspend fun addTrackToPlaylist(
+        @Path("playlist_id") playlistId: String,
+        @Body body: com.coreplayer.app.data.model.AddTrackRequest
+    ): com.coreplayer.app.data.model.GenericMessageResponse
+
+    @DELETE("api/library/playlists/{playlist_id}/tracks/{track_id}")
+    suspend fun removeTrackFromPlaylist(
+        @Path("playlist_id") playlistId: String,
+        @Path("track_id") trackId: String
+    ): com.coreplayer.app.data.model.GenericMessageResponse
+
+    @PUT("api/library/playlists/{playlist_id}/reorder")
+    suspend fun reorderPlaylistTracks(
+        @Path("playlist_id") playlistId: String,
+        @Body body: com.coreplayer.app.data.model.ReorderPlaylistRequest
+    ): com.coreplayer.app.data.model.GenericMessageResponse
 
     @GET("api/library/playlists/{playlist_id}")
     suspend fun getPlaylist(

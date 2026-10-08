@@ -8,6 +8,9 @@ import com.coreplayer.app.data.model.PlaylistDto
 import com.coreplayer.app.data.model.TrackDto
 import com.coreplayer.app.data.repository.LibraryRepository
 import com.coreplayer.app.player.PlayerControllerManager
+import com.coreplayer.app.data.repository.RecentTracksManager
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,16 +32,30 @@ data class HomeUiState(
 
 class HomeViewModel(
     private val libraryRepository: LibraryRepository,
-    private val playerController: PlayerControllerManager
+    private val playerController: PlayerControllerManager,
+    private val recentTracksManager: RecentTracksManager? = null
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(HomeUiState())
+    private val recentManager: RecentTracksManager? = recentTracksManager ?: try {
+        com.coreplayer.app.CorePlayerApp.instance.recentTracksManager
+    } catch (_: Exception) {
+        null
+    }
+
+    private val _uiState = MutableStateFlow(
+        HomeUiState(
+            recentTracks = recentManager?.loadRecent()?.take(RecentTracksManager.MAX_RECENT) ?: emptyList()
+        )
+    )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private var autoReconnectJob: Job? = null
 
     init {
         loadHomeData()
         observePlayerState()
         observeFavorites()
+        observePlaylists()
     }
 
     private fun observePlayerState() {
@@ -47,8 +64,10 @@ class HomeViewModel(
                 .mapNotNull { it.currentTrack }
                 .distinctUntilChangedBy { it.id }
                 .collect { newTrack ->
+                    recentManager?.addTrack(newTrack)
                     _uiState.update { state ->
-                        val updated = (listOf(newTrack) + state.recentTracks.filter { it.id != newTrack.id }).take(6)
+                        val updated = (listOf(newTrack) + state.recentTracks.filter { it.id != newTrack.id })
+                            .take(RecentTracksManager.MAX_RECENT)
                         state.copy(recentTracks = updated)
                     }
                 }
@@ -73,17 +92,34 @@ class HomeViewModel(
         }
     }
 
+    private fun observePlaylists() {
+        viewModelScope.launch {
+            libraryRepository.playlistsChanged.collect {
+                try {
+                    val updatedPlaylists = libraryRepository.getPlaylists()
+                    _uiState.update { it.copy(playlists = updatedPlaylists) }
+                } catch (e: Exception) {
+                    android.util.Log.e("HomeViewModel", "Failed to refresh playlists", e)
+                }
+            }
+        }
+    }
+
     fun loadHomeData() {
+        autoReconnectJob?.cancel()
         _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             try {
                 val artists = libraryRepository.getArtists()
                 val playlists = libraryRepository.getPlaylists()
                 val favorites = libraryRepository.getFavoriteTracks()
-                val recent = if (_uiState.value.recentTracks.isNotEmpty()) {
-                    _uiState.value.recentTracks
+                val persistedRecent = recentManager?.loadRecent()?.take(RecentTracksManager.MAX_RECENT)
+                val recent = if (!persistedRecent.isNullOrEmpty()) {
+                    persistedRecent
+                } else if (_uiState.value.recentTracks.isNotEmpty()) {
+                    _uiState.value.recentTracks.take(RecentTracksManager.MAX_RECENT)
                 } else {
-                    favorites.take(6)
+                    favorites.take(RecentTracksManager.MAX_RECENT)
                 }
                 _uiState.update {
                     it.copy(
@@ -114,8 +150,45 @@ class HomeViewModel(
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.localizedMessage ?: "Failed to load home data"
+                        error = e.localizedMessage ?: "Ошибка подключения к серверу"
                     )
+                }
+                startAutoReconnect()
+            }
+        }
+    }
+
+    private fun startAutoReconnect() {
+        autoReconnectJob?.cancel()
+        autoReconnectJob = viewModelScope.launch {
+            var backoffMs = 3000L
+            var attempts = 0
+            while (_uiState.value.error != null && attempts < 5) {
+                delay(backoffMs)
+                attempts++
+                try {
+                    val artists = libraryRepository.getArtists()
+                    val playlists = libraryRepository.getPlaylists()
+                    val favorites = libraryRepository.getFavoriteTracks()
+                    val recent = if (_uiState.value.recentTracks.isNotEmpty()) {
+                        _uiState.value.recentTracks
+                    } else {
+                        favorites.take(RecentTracksManager.MAX_RECENT)
+                    }
+                    _uiState.update {
+                        it.copy(
+                            artists = artists,
+                            playlists = playlists,
+                            favorites = favorites,
+                            favoritesCount = favorites.size,
+                            recentTracks = recent,
+                            error = null,
+                            isLoading = false
+                        )
+                    }
+                    break
+                } catch (e: Exception) {
+                    backoffMs = (backoffMs * 1.5).toLong().coerceAtMost(15000L)
                 }
             }
         }
@@ -147,11 +220,18 @@ class HomeViewModel(
     }
 
     fun playArtist(artist: ArtistDto) {
-        val artistTracks = _uiState.value.favorites.filter {
-            it.artist.equals(artist.name, ignoreCase = true) || it.artistId == artist.id
-        }
-        if (artistTracks.isNotEmpty()) {
-            playerController.playTrack(artistTracks.first(), artistTracks)
+        viewModelScope.launch {
+            val artistTracks = _uiState.value.favorites.filter {
+                it.artist.equals(artist.name, ignoreCase = true) || it.artistId == artist.id
+            }
+            if (artistTracks.isNotEmpty()) {
+                playerController.playTrack(artistTracks.first(), artistTracks)
+            } else {
+                val searched = libraryRepository.search(artist.name)
+                if (searched.isNotEmpty()) {
+                    playerController.playTrack(searched.first(), searched)
+                }
+            }
         }
     }
 
@@ -177,12 +257,13 @@ class HomeViewModel(
 
     class Factory(
         private val libraryRepository: LibraryRepository,
-        private val playerController: PlayerControllerManager
+        private val playerController: PlayerControllerManager,
+        private val recentTracksManager: RecentTracksManager? = null
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
-                return HomeViewModel(libraryRepository, playerController) as T
+                return HomeViewModel(libraryRepository, playerController, recentTracksManager) as T
             }
             throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }

@@ -195,6 +195,26 @@ class RepositoryTest {
             )
         }
 
+        override suspend fun createPlaylist(body: com.coreplayer.app.data.model.CreatePlaylistRequest): com.coreplayer.app.data.model.CreatePlaylistResponse {
+            return com.coreplayer.app.data.model.CreatePlaylistResponse(id = "pl-new", name = body.name, songCount = 0)
+        }
+
+        override suspend fun deletePlaylist(playlistId: String): com.coreplayer.app.data.model.GenericMessageResponse {
+            return com.coreplayer.app.data.model.GenericMessageResponse(message = "Deleted")
+        }
+
+        override suspend fun addTrackToPlaylist(playlistId: String, body: com.coreplayer.app.data.model.AddTrackRequest): com.coreplayer.app.data.model.GenericMessageResponse {
+            return com.coreplayer.app.data.model.GenericMessageResponse(message = "Added")
+        }
+
+        override suspend fun removeTrackFromPlaylist(playlistId: String, trackId: String): com.coreplayer.app.data.model.GenericMessageResponse {
+            return com.coreplayer.app.data.model.GenericMessageResponse(message = "Removed")
+        }
+
+        override suspend fun reorderPlaylistTracks(playlistId: String, body: com.coreplayer.app.data.model.ReorderPlaylistRequest): com.coreplayer.app.data.model.GenericMessageResponse {
+            return com.coreplayer.app.data.model.GenericMessageResponse(message = "Reordered")
+        }
+
         override suspend fun getLyrics(
             trackId: String,
             artist: String?,
@@ -222,5 +242,17 @@ class RepositoryTest {
         val tracks = libraryRepository.getPlaylistTracks("pl-1")
         assertEquals(1, tracks.size)
         assertEquals("Karma Police", tracks.first().title)
+    }
+
+    @Test
+    fun libraryRepository_playlistCrudAndReorder_succeeds() = runTest {
+        val created = libraryRepository.createPlaylist("My New Playlist")
+        assertEquals("pl-new", created.id)
+        assertEquals("My New Playlist", created.name)
+
+        libraryRepository.addTrackToPlaylist("pl-new", "trk-1")
+        libraryRepository.reorderPlaylistTracks("pl-new", listOf("trk-2", "trk-1"))
+        libraryRepository.removeTrackFromPlaylist("pl-new", "trk-1")
+        libraryRepository.deletePlaylist("pl-new")
     }
 }

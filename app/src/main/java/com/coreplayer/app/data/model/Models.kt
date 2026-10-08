@@ -159,3 +159,26 @@ data class SearchResultDto(
     val artists: List<ArtistDto>
         get() = artistList ?: artistsList ?: emptyList()
 }
+
+data class CreatePlaylistRequest(
+    @Json(name = "name") val name: String
+)
+
+data class CreatePlaylistResponse(
+    @Json(name = "id") val id: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "created") val created: String? = null,
+    @Json(name = "songCount") val songCount: Int = 0
+)
+
+data class AddTrackRequest(
+    @Json(name = "track_id") val track_id: String
+)
+
+data class ReorderPlaylistRequest(
+    @Json(name = "track_ids") val track_ids: List<String>
+)
+
+data class GenericMessageResponse(
+    @Json(name = "message") val message: String? = null
+)

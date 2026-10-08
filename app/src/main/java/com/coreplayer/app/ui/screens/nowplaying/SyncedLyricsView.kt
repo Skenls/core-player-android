@@ -148,8 +148,8 @@ fun SyncedLyricsView(
 
     LazyColumn(
         state = listState,
-        contentPadding = PaddingValues(top = 140.dp, bottom = 220.dp, start = 20.dp, end = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(top = 40.dp, bottom = 48.dp, start = 20.dp, end = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier.fillMaxSize()
     ) {
         itemsIndexed(

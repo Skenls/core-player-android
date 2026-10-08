@@ -29,10 +29,31 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
     val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .cookieJar(cookieJar)
+            .retryOnConnectionFailure(true)
+            .addInterceptor { chain ->
+                var request = chain.request()
+                var response: okhttp3.Response? = null
+                var lastException: java.io.IOException? = null
+                var tryCount = 0
+                val maxRetries = 2
+                while (tryCount <= maxRetries && response == null) {
+                    try {
+                        response = chain.proceed(request)
+                    } catch (e: java.io.IOException) {
+                        lastException = e
+                        tryCount++
+                        if (tryCount <= maxRetries) {
+                            try { Thread.sleep((tryCount * 1000).toLong()) } catch (_: InterruptedException) {}
+                        }
+                    }
+                }
+                response ?: throw (lastException ?: java.io.IOException("Request failed"))
+            }
             .build()
     }
 
     val searchHistoryManager by lazy { SearchHistoryManager(this) }
+    val recentTracksManager by lazy { com.coreplayer.app.data.repository.RecentTracksManager(this) }
 
     lateinit var playerController: PlayerControllerManager
         private set
@@ -58,6 +79,19 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
         set(value) {
             prefs.edit().putString("audio_codec", value).apply()
         }
+
+    var playerBackgroundMode: String
+        get() = prefs.getString("player_bg_mode", "cover") ?: "cover"
+        set(value) {
+            prefs.edit().putString("player_bg_mode", value).apply()
+        }
+
+    fun updateCodec(newCodec: String) {
+        audioCodec = newCodec
+        if (::playerController.isInitialized) {
+            playerController.applyCodec(newCodec)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()

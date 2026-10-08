@@ -128,7 +128,8 @@ fun AppNavigation(
                             isFavorite = isCurrentTrackFavorite,
                             onTogglePlayPause = { playerController.togglePlayPause() },
                             onToggleFavorite = toggleFavorite,
-                            onClick = { showNowPlayingSheet = true }
+                            onClick = { showNowPlayingSheet = true },
+                            baseUrl = playerController.baseUrl
                         )
                     }
 

@@ -242,14 +242,15 @@ fun NowPlayingContent(
     val coverUrl = resolveCoverUrl(track?.coverArt, baseUrl)
     val durationMs = playerState.durationMs.coerceAtLeast(0L)
     val displayedPositionMs = if (isSeeking) seekPositionMs.toLong() else playerState.currentPositionMs
+    val backgroundMode = try { com.coreplayer.app.CorePlayerApp.instance.playerBackgroundMode } catch (_: Exception) { "cover" }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(DarkBackground)
     ) {
-        // Dynamic background blur layer from album artwork
-        if (!coverUrl.isNullOrBlank()) {
+        // Dynamic background blur layer from album artwork (respects backgroundMode setting)
+        if (backgroundMode == "cover" && !coverUrl.isNullOrBlank()) {
             AsyncImage(
                 model = coverUrl,
                 contentDescription = null,
@@ -347,7 +348,7 @@ fun NowPlayingContent(
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        // Artwork View: Large rounded 24dp square
+                        // Artwork View: Large rounded 24dp square - tap toggles lyrics
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(0.85f)
@@ -358,7 +359,8 @@ fun NowPlayingContent(
                                     spotColor = Color.Black.copy(alpha = 0.8f)
                                 )
                                 .clip(RoundedCornerShape(24.dp))
-                                .background(DarkSurfaceVariant),
+                                .background(DarkSurfaceVariant)
+                                .clickable { showLyrics = true },
                             contentAlignment = Alignment.Center
                         ) {
                             if (coverUrl.isNullOrBlank()) {
@@ -382,6 +384,8 @@ fun NowPlayingContent(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // 3. Lower Control Panel: Track Info, Seek Bar, Playback Controls
             Column(

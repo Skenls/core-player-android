@@ -77,6 +77,21 @@ open class PlayerControllerManager(
             }
             _state.update { it.copy(repeatMode = mapped) }
         }
+
+        override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+            android.util.Log.w(TAG, "Playback error: ${error.errorCodeName}, attempting auto-reconnect", error)
+            coroutineScope.launch {
+                delay(2000L)
+                val p = player ?: return@launch
+                val cur = _state.value.currentTrack
+                if (cur != null) {
+                    val pos = _state.value.currentPositionMs
+                    p.prepare()
+                    p.seekTo(pos)
+                    p.play()
+                }
+            }
+        }
     }
 
     init {
@@ -210,6 +225,26 @@ open class PlayerControllerManager(
         }
     }
 
+    /**
+     * Applies a new audio codec immediately to currently playing queue.
+     * Re-prepares current track at current playback position seamlessly.
+     */
+    fun applyCodec(newCodec: String) {
+        val p = player ?: return
+        val currentTrack = _state.value.currentTrack ?: return
+        val currentPos = p.currentPosition.coerceAtLeast(0L)
+        val isPlaying = p.isPlaying
+
+        val startIndex = currentQueue.indexOfFirst { it.id == currentTrack.id }.coerceAtLeast(0)
+        val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, newCodec) }
+
+        p.setMediaItems(mediaItems, startIndex, currentPos)
+        p.prepare()
+        if (isPlaying) {
+            p.play()
+        }
+    }
+
     fun togglePlayPause() {
         val p = player ?: return
         if (p.isPlaying) {
@@ -239,9 +274,83 @@ open class PlayerControllerManager(
 
     fun skipNext() {
         val p = player ?: return
+        val queue = currentQueue
+
         if (p.hasNextMediaItem()) {
             p.seekToNextMediaItem()
+            return
         }
+
+        if (queue.isEmpty()) return
+
+        val currentTrack = _state.value.currentTrack
+        val currentIndex = if (currentTrack != null) {
+            queue.indexOfFirst { it.id == currentTrack.id }
+        } else {
+            p.currentMediaItemIndex
+        }.let { if (it >= 0) it else p.currentMediaItemIndex }
+
+        val isShuffle = p.shuffleModeEnabled || _state.value.shuffleModeEnabled
+        val isRepeatAll = p.repeatMode == Player.REPEAT_MODE_ALL || _state.value.repeatMode == RepeatMode.ALL
+
+        // If shuffle is enabled and queue has multiple tracks:
+        if (isShuffle && queue.size > 1) {
+            val candidateIndices = queue.indices.filter { it != currentIndex }
+            val nextIndex = candidateIndices.randomOrNull() ?: 0
+            val nextTrack = queue.getOrNull(nextIndex)
+            if (nextTrack != null) {
+                _state.update {
+                    it.copy(
+                        currentTrack = nextTrack,
+                        currentPositionMs = 0L,
+                        durationMs = (nextTrack.duration * 1000L).coerceAtLeast(0L),
+                        isPlaying = true,
+                        isBuffering = true
+                    )
+                }
+            }
+            p.seekTo(nextIndex, 0L)
+            p.play()
+            return
+        }
+
+        // If not at the end of the queue: advance to next item
+        if (currentIndex in 0 until queue.size - 1) {
+            val nextIndex = currentIndex + 1
+            val nextTrack = queue[nextIndex]
+            _state.update {
+                it.copy(
+                    currentTrack = nextTrack,
+                    currentPositionMs = 0L,
+                    durationMs = (nextTrack.duration * 1000L).coerceAtLeast(0L),
+                    isPlaying = true,
+                    isBuffering = true
+                )
+            }
+            p.seekTo(nextIndex, 0L)
+            p.play()
+            return
+        }
+
+        // If at the last track of current queue:
+        if (isRepeatAll && queue.isNotEmpty()) {
+            val firstTrack = queue[0]
+            _state.update {
+                it.copy(
+                    currentTrack = firstTrack,
+                    currentPositionMs = 0L,
+                    durationMs = (firstTrack.duration * 1000L).coerceAtLeast(0L),
+                    isPlaying = true,
+                    isBuffering = true
+                )
+            }
+            p.seekTo(0, 0L)
+            p.play()
+            return
+        }
+
+        // Otherwise (last track, repeat OFF, shuffle OFF):
+        // Does not advance past the end of the queue.
     }
 
     fun skipPrevious() {
@@ -249,8 +358,36 @@ open class PlayerControllerManager(
         if (p.currentPosition > 3000L) {
             p.seekTo(0L)
             _state.update { it.copy(currentPositionMs = 0L) }
-        } else if (p.hasPreviousMediaItem()) {
+            return
+        }
+
+        if (p.hasPreviousMediaItem()) {
             p.seekToPreviousMediaItem()
+            return
+        }
+
+        val queue = currentQueue
+        val currentTrack = _state.value.currentTrack
+        val currentIndex = if (currentTrack != null) {
+            queue.indexOfFirst { it.id == currentTrack.id }
+        } else {
+            p.currentMediaItemIndex
+        }.let { if (it >= 0) it else p.currentMediaItemIndex }
+
+        if (currentIndex > 0 && queue.isNotEmpty()) {
+            val prevIndex = currentIndex - 1
+            val prevTrack = queue[prevIndex]
+            _state.update {
+                it.copy(
+                    currentTrack = prevTrack,
+                    currentPositionMs = 0L,
+                    durationMs = (prevTrack.duration * 1000L).coerceAtLeast(0L),
+                    isPlaying = true,
+                    isBuffering = true
+                )
+            }
+            p.seekTo(prevIndex, 0L)
+            p.play()
         } else {
             p.seekTo(0L)
             _state.update { it.copy(currentPositionMs = 0L) }

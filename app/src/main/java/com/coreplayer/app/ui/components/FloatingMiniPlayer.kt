@@ -77,15 +77,19 @@ fun FloatingMiniPlayer(
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    progress: Float = 0f
+    progress: Float = 0f,
+    coverArtUrl: String? = null
 ) {
-    val capsuleGradient = remember {
+    val palette by com.coreplayer.app.ui.util.rememberAdaptivePalette(coverArtUrl)
+    val startColor by animateColorAsState(targetValue = palette.primary, animationSpec = tween(500), label = "palStart")
+    val endColor by animateColorAsState(targetValue = palette.secondary, animationSpec = tween(500), label = "palEnd")
+
+    val capsuleGradient = remember(startColor, endColor) {
         Brush.horizontalGradient(
             colors = listOf(
-                Color(0xFF161C26),
-                Color(0xFF162334),
-                Color(0xFF152A3F),
-                Color(0xFF12344E)
+                Color(0xFF10141D),
+                startColor,
+                endColor
             )
         )
     }
@@ -261,8 +265,10 @@ fun FloatingMiniPlayer(
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    progress: Float = 0f
+    progress: Float = 0f,
+    baseUrl: String = ""
 ) {
+    val coverUrl = com.coreplayer.app.ui.util.resolveCoverUrl(track.coverArt, baseUrl)
     FloatingMiniPlayer(
         trackTitle = track.title,
         artistName = track.artist.ifBlank { "Неизвестный исполнитель" },
@@ -272,7 +278,8 @@ fun FloatingMiniPlayer(
         onToggleFavorite = onToggleFavorite,
         onClick = onClick,
         modifier = modifier,
-        progress = progress
+        progress = progress,
+        coverArtUrl = coverUrl
     )
 }
 
@@ -287,7 +294,8 @@ fun FloatingMiniPlayer(
     onTogglePlayPause: () -> Unit,
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    baseUrl: String = ""
 ) {
     val track = playerState.currentTrack ?: return
     FloatingMiniPlayer(
@@ -298,7 +306,8 @@ fun FloatingMiniPlayer(
         onTogglePlayPause = onTogglePlayPause,
         onToggleFavorite = onToggleFavorite,
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
+        baseUrl = baseUrl
     )
 }
 

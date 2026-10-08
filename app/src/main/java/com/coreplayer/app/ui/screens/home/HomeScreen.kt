@@ -96,7 +96,9 @@ fun HomeScreen(
             username = currentUser?.username ?: "Пользователь",
             serverUrl = CorePlayerApp.instance.serverUrl,
             selectedCodec = CorePlayerApp.instance.audioCodec,
-            onCodecSelected = { CorePlayerApp.instance.audioCodec = it },
+            onCodecSelected = { CorePlayerApp.instance.updateCodec(it) },
+            selectedBgMode = CorePlayerApp.instance.playerBackgroundMode,
+            onBgModeSelected = { CorePlayerApp.instance.playerBackgroundMode = it },
             onLogout = {
                 showSettingsDialog = false
                 scope.launch {

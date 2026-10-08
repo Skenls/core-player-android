@@ -22,9 +22,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
@@ -57,7 +62,7 @@ import com.coreplayer.app.player.PlayerControllerManager
 import com.coreplayer.app.player.formatTime
 import com.coreplayer.app.ui.components.FavoritesBanner
 import com.coreplayer.app.ui.components.PlaylistCard
-import com.coreplayer.app.ui.util.resolveCoverUrl
+import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CardTitleStyle
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.DarkBackground
@@ -65,6 +70,7 @@ import com.coreplayer.app.ui.theme.DarkSurfaceVariant
 import com.coreplayer.app.ui.theme.SectionTitleStyle
 import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
+import com.coreplayer.app.ui.util.resolveCoverUrl
 import kotlinx.coroutines.launch
 
 enum class LibraryTab(val title: String) {
@@ -84,16 +90,20 @@ fun LibraryScreen(
     var playlists by remember { mutableStateOf<List<PlaylistDto>>(emptyList()) }
     var playlistCovers by remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // Playlist detail & CRUD states
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var selectedPlaylistForDetail by remember { mutableStateOf<PlaylistDto?>(null) }
+    var playlistDetailTracks by remember { mutableStateOf<List<TrackDto>>(emptyList()) }
+    var isPlaylistDetailLoading by remember { mutableStateOf(false) }
+    var trackForAddToPlaylist by remember { mutableStateOf<TrackDto?>(null) }
+
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
-        isLoading = true
+    val refreshPlaylists: suspend () -> Unit = {
         try {
-            favorites = libraryRepository.getFavoriteTracks()
             val fetchedPlaylists = libraryRepository.getPlaylists()
             playlists = fetchedPlaylists
-
-            // Resolve first track's cover art for playlists without custom covers
             val covers = mutableMapOf<String, String?>()
             for (pl in fetchedPlaylists) {
                 if (!pl.coverArt.isNullOrBlank()) {
@@ -104,6 +114,16 @@ fun LibraryScreen(
                 }
             }
             playlistCovers = covers
+        } catch (e: Exception) {
+            android.util.Log.e("LibraryScreen", "Failed to load playlists", e)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        try {
+            favorites = libraryRepository.getFavoriteTracks()
+            refreshPlaylists()
         } catch (e: Exception) {
             android.util.Log.e("LibraryScreen", "Failed to load library data", e)
         } finally {
@@ -121,6 +141,148 @@ fun LibraryScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        libraryRepository.playlistsChanged.collect {
+            refreshPlaylists()
+        }
+    }
+
+    // Load detail tracks when a playlist is opened
+    LaunchedEffect(selectedPlaylistForDetail?.id) {
+        val pl = selectedPlaylistForDetail
+        if (pl != null) {
+            isPlaylistDetailLoading = true
+            try {
+                playlistDetailTracks = libraryRepository.getPlaylistTracks(pl.id)
+            } catch (e: Exception) {
+                playlistDetailTracks = emptyList()
+            } finally {
+                isPlaylistDetailLoading = false
+            }
+        }
+    }
+
+    // Create Playlist Dialog
+    if (showCreatePlaylistDialog) {
+        CreatePlaylistDialog(
+            onDismiss = { showCreatePlaylistDialog = false },
+            onConfirm = { name ->
+                showCreatePlaylistDialog = false
+                scope.launch {
+                    try {
+                        libraryRepository.createPlaylist(name)
+                        refreshPlaylists()
+                    } catch (e: Exception) {
+                        android.util.Log.e("LibraryScreen", "Failed to create playlist", e)
+                    }
+                }
+            }
+        )
+    }
+
+    // Add To Playlist Dialog
+    trackForAddToPlaylist?.let { track ->
+        AddToPlaylistDialog(
+            track = track,
+            playlists = playlists,
+            onDismiss = { trackForAddToPlaylist = null },
+            onSelectPlaylist = { pl ->
+                scope.launch {
+                    try {
+                        libraryRepository.addTrackToPlaylist(pl.id, track.id)
+                        refreshPlaylists()
+                    } catch (e: Exception) {
+                        android.util.Log.e("LibraryScreen", "Failed to add track to playlist", e)
+                    }
+                }
+                trackForAddToPlaylist = null
+            },
+            onCreatePlaylist = { name ->
+                scope.launch {
+                    try {
+                        val newPl = libraryRepository.createPlaylist(name)
+                        libraryRepository.addTrackToPlaylist(newPl.id, track.id)
+                        refreshPlaylists()
+                    } catch (e: Exception) {
+                        android.util.Log.e("LibraryScreen", "Failed to create and add to playlist", e)
+                    }
+                }
+                trackForAddToPlaylist = null
+            }
+        )
+    }
+
+    // Playlist Details Sheet
+    selectedPlaylistForDetail?.let { pl ->
+        PlaylistDetailSheet(
+            playlist = pl,
+            tracks = playlistDetailTracks,
+            isLoading = isPlaylistDetailLoading,
+            baseUrl = playerController.baseUrl,
+            onDismiss = { selectedPlaylistForDetail = null },
+            onPlayTrack = { track, trackList ->
+                playerController.playTrack(track, trackList)
+            },
+            onPlayAll = {
+                if (playlistDetailTracks.isNotEmpty()) {
+                    playerController.playTrack(playlistDetailTracks.first(), playlistDetailTracks)
+                }
+            },
+            onRemoveTrack = { track ->
+                playlistDetailTracks = playlistDetailTracks.filter { it.id != track.id }
+                scope.launch {
+                    try {
+                        libraryRepository.removeTrackFromPlaylist(pl.id, track.id)
+                        refreshPlaylists()
+                    } catch (e: Exception) {
+                        android.util.Log.e("LibraryScreen", "Failed to remove track from playlist", e)
+                    }
+                }
+            },
+            onMoveTrackUp = { index ->
+                if (index > 0) {
+                    val updated = playlistDetailTracks.toMutableList()
+                    val item = updated.removeAt(index)
+                    updated.add(index - 1, item)
+                    playlistDetailTracks = updated
+                    scope.launch {
+                        try {
+                            libraryRepository.reorderPlaylistTracks(pl.id, updated.map { it.id })
+                        } catch (e: Exception) {
+                            android.util.Log.e("LibraryScreen", "Failed to reorder playlist", e)
+                        }
+                    }
+                }
+            },
+            onMoveTrackDown = { index ->
+                if (index < playlistDetailTracks.size - 1) {
+                    val updated = playlistDetailTracks.toMutableList()
+                    val item = updated.removeAt(index)
+                    updated.add(index + 1, item)
+                    playlistDetailTracks = updated
+                    scope.launch {
+                        try {
+                            libraryRepository.reorderPlaylistTracks(pl.id, updated.map { it.id })
+                        } catch (e: Exception) {
+                            android.util.Log.e("LibraryScreen", "Failed to reorder playlist", e)
+                        }
+                    }
+                }
+            },
+            onDeletePlaylist = {
+                selectedPlaylistForDetail = null
+                scope.launch {
+                    try {
+                        libraryRepository.deletePlaylist(pl.id)
+                        refreshPlaylists()
+                    } catch (e: Exception) {
+                        android.util.Log.e("LibraryScreen", "Failed to delete playlist", e)
+                    }
+                }
+            }
+        )
+    }
+
     LibraryScreenContent(
         selectedTabIndex = selectedTab,
         onTabSelected = { selectedTab = it },
@@ -132,13 +294,14 @@ fun LibraryScreen(
         onTrackClick = { track ->
             playerController.playTrack(track, favorites)
         },
+        onAddToPlaylist = { track ->
+            trackForAddToPlaylist = track
+        },
+        onCreatePlaylistClick = {
+            showCreatePlaylistDialog = true
+        },
         onPlaylistClick = { playlist ->
-            scope.launch {
-                val tracks = libraryRepository.getPlaylistTracks(playlist.id)
-                if (tracks.isNotEmpty()) {
-                    playerController.playTrack(tracks.first(), tracks)
-                }
-            }
+            selectedPlaylistForDetail = playlist
         },
         modifier = modifier
     )
@@ -154,6 +317,8 @@ fun LibraryScreenContent(
     isLoading: Boolean,
     baseUrl: String,
     onTrackClick: (TrackDto) -> Unit,
+    onAddToPlaylist: (TrackDto) -> Unit = {},
+    onCreatePlaylistClick: () -> Unit = {},
     onPlaylistClick: (PlaylistDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -165,11 +330,24 @@ fun LibraryScreenContent(
             .background(DarkBackground)
             .statusBarsPadding()
     ) {
-        Text(
-            text = "Медиатека",
-            style = SectionTitleStyle,
-            modifier = Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 12.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Медиатека",
+                style = SectionTitleStyle
+            )
+
+            if (tabs[selectedTabIndex] == LibraryTab.PLAYLISTS) {
+                IconButton(onClick = onCreatePlaylistClick) {
+                    Icon(imageVector = Icons.Filled.Add, contentDescription = "Создать плейлист", tint = TextPrimary)
+                }
+            }
+        }
 
         ScrollableTabRow(
             selectedTabIndex = selectedTabIndex,
@@ -259,7 +437,8 @@ fun LibraryScreenContent(
                                     LibraryTrackItem(
                                         track = track,
                                         baseUrl = baseUrl,
-                                        onClick = { onTrackClick(track) }
+                                        onClick = { onTrackClick(track) },
+                                        onAddToPlaylist = { onAddToPlaylist(track) }
                                     )
                                 }
                             }
@@ -267,29 +446,70 @@ fun LibraryScreenContent(
                     }
 
                     LibraryTab.PLAYLISTS -> {
-                        if (playlists.isEmpty()) {
-                            Text(
-                                text = "Нет плейлистов",
-                                color = TextSecondary,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        } else {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                modifier = Modifier.fillMaxSize()
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // Header action row for Playlists
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                items(playlists, key = { it.id }) { playlist ->
-                                    val resolvedArt = playlist.coverArt ?: playlistCovers[playlist.id]
-                                    PlaylistCard(
-                                        playlist = playlist,
-                                        coverUrl = resolveCoverUrl(resolvedArt, baseUrl),
-                                        cardSize = 160.dp,
-                                        onClick = { onPlaylistClick(playlist) },
-                                        onPlayClick = { onPlaylistClick(playlist) }
+                                Text(
+                                    text = "${playlists.size} плейлистов",
+                                    color = TextSecondary,
+                                    fontSize = 13.sp
+                                )
+
+                                Button(
+                                    onClick = onCreatePlaylistClick,
+                                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Add,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
                                     )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Новый плейлист",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            if (playlists.isEmpty()) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = "Нет плейлистов",
+                                        color = TextSecondary
+                                    )
+                                }
+                            } else {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(playlists, key = { it.id }) { playlist ->
+                                        val resolvedArt = playlist.coverArt ?: playlistCovers[playlist.id]
+                                        PlaylistCard(
+                                            playlist = playlist,
+                                            coverUrl = resolveCoverUrl(resolvedArt, baseUrl),
+                                            cardSize = 160.dp,
+                                            onClick = { onPlaylistClick(playlist) },
+                                            onPlayClick = { onPlaylistClick(playlist) }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -305,7 +525,8 @@ fun LibraryTrackItem(
     track: TrackDto,
     baseUrl: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onAddToPlaylist: (() -> Unit)? = null
 ) {
     Row(
         modifier = modifier
@@ -361,7 +582,7 @@ fun LibraryTrackItem(
             )
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
 
         if (track.duration > 0) {
             Text(
@@ -370,6 +591,20 @@ fun LibraryTrackItem(
                 color = TextSecondary,
                 fontWeight = FontWeight.Medium
             )
+        }
+
+        if (onAddToPlaylist != null) {
+            IconButton(
+                onClick = onAddToPlaylist,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PlaylistAdd,
+                    contentDescription = "Добавить в плейлист",
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

@@ -297,4 +297,63 @@ class PlayerControllerManagerTest {
         assertFalse(isolatedScope.isActive)
         assertNull(manager.player)
     }
+
+    @Test
+    fun applyCodec_repreparesPlayerAtCurrentPosition() {
+        val manager = createManager()
+        manager.attachPlayer(mockPlayer)
+
+        val track = TrackDto(id = "trk-codec", title = "Codec Song", duration = 120)
+        manager.playTrack(track)
+
+        every { mockPlayer.currentPosition } returns 45_000L
+        every { mockPlayer.isPlaying } returns true
+
+        manager.applyCodec("flac")
+
+        verify { mockPlayer.setMediaItems(any(), 0, 45_000L) }
+        verify { mockPlayer.prepare() }
+        verify { mockPlayer.play() }
+    }
+
+    @Test
+    fun skipNext_atEndOfQueueWithoutRepeat_doesNotAdvance() {
+        val manager = createManager()
+        manager.attachPlayer(mockPlayer)
+
+        val track1 = TrackDto(id = "trk-1", title = "Song 1")
+        val track2 = TrackDto(id = "trk-2", title = "Song 2")
+        val queue = listOf(track1, track2)
+
+        manager.playTrack(track2, queue) // on last track
+
+        every { mockPlayer.hasNextMediaItem() } returns false
+        every { mockPlayer.repeatMode } returns Player.REPEAT_MODE_OFF
+        every { mockPlayer.shuffleModeEnabled } returns false
+
+        manager.skipNext()
+
+        // Should NOT seek
+        verify(exactly = 0) { mockPlayer.seekTo(any(), any()) }
+    }
+
+    @Test
+    fun skipNext_atEndOfQueueWithRepeatAll_loopsToStart() {
+        val manager = createManager()
+        manager.attachPlayer(mockPlayer)
+
+        val track1 = TrackDto(id = "trk-1", title = "Song 1")
+        val track2 = TrackDto(id = "trk-2", title = "Song 2")
+        val queue = listOf(track1, track2)
+
+        manager.playTrack(track2, queue) // on last track
+
+        every { mockPlayer.hasNextMediaItem() } returns false
+        every { mockPlayer.repeatMode } returns Player.REPEAT_MODE_ALL
+        every { mockPlayer.shuffleModeEnabled } returns false
+
+        manager.skipNext()
+
+        verify { mockPlayer.seekTo(0, 0L) }
+    }
 }

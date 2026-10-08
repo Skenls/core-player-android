@@ -51,6 +51,7 @@ class HomeViewModelTest {
     )
 
     private val defaultFavoritesChanged = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val defaultPlaylistsChanged = kotlinx.coroutines.flow.MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private val defaultPlayerState = kotlinx.coroutines.flow.MutableStateFlow(com.coreplayer.app.player.PlayerState())
 
     @Before
@@ -59,6 +60,7 @@ class HomeViewModelTest {
         libraryRepository = mockk(relaxed = true)
         playerController = mockk(relaxed = true)
         every { libraryRepository.favoritesChanged } returns defaultFavoritesChanged
+        every { libraryRepository.playlistsChanged } returns defaultPlaylistsChanged
         every { playerController.state } returns defaultPlayerState
     }
 
@@ -165,7 +167,7 @@ class HomeViewModelTest {
         viewModel.playRecentTrack(track)
 
         verify {
-            playerController.playTrack(track, sampleFavorites.take(6))
+            playerController.playTrack(track, sampleFavorites.take(4))
         }
     }
 
@@ -180,6 +182,7 @@ class HomeViewModelTest {
 
         val artist = sampleArtists[0] // Radiohead
         viewModel.playArtist(artist)
+        advanceUntilIdle()
 
         verify {
             playerController.playTrack(
@@ -194,12 +197,14 @@ class HomeViewModelTest {
         coEvery { libraryRepository.getArtists() } returns sampleArtists
         coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
         coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites
+        coEvery { libraryRepository.search(any()) } returns emptyList()
 
         val viewModel = HomeViewModel(libraryRepository, playerController)
         advanceUntilIdle()
 
         val unknownArtist = ArtistDto(id = "art-99", name = "Unknown Band")
         viewModel.playArtist(unknownArtist)
+        advanceUntilIdle()
 
         verify(exactly = 0) {
             playerController.playTrack(any(), any())

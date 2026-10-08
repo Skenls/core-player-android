@@ -60,16 +60,30 @@ val AVAILABLE_CODECS = listOf(
     CodecOption("flac", "FLAC", "Lossless сжатие")
 )
 
+data class BackgroundOption(
+    val id: String,
+    val title: String,
+    val subtitle: String
+)
+
+val AVAILABLE_BG_MODES = listOf(
+    BackgroundOption("cover", "Под обложку (размытие)", "Адаптивный размытый фон из обложки"),
+    BackgroundOption("default", "Обычный (темный)", "Классический глубокий темный фон")
+)
+
 @Composable
 fun SettingsDialog(
     username: String,
     serverUrl: String,
     selectedCodec: String,
     onCodecSelected: (String) -> Unit,
+    selectedBgMode: String = "cover",
+    onBgModeSelected: (String) -> Unit = {},
     onLogout: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var currentCodec by remember { mutableStateOf(selectedCodec) }
+    var currentBgMode by remember { mutableStateOf(selectedBgMode) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -197,6 +211,65 @@ fun SettingsDialog(
                                 onClick = {
                                     currentCodec = option.id
                                     onCodecSelected(option.id)
+                                },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = Color.White,
+                                    unselectedColor = Color(0x66FFFFFF)
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = option.title,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (isSelected) Color.White else TextPrimary
+                                )
+                                Text(
+                                    text = option.subtitle,
+                                    fontSize = 11.sp,
+                                    color = TextSecondary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Player Background Mode Selection
+                Text(
+                    text = "ФОН ПЛЕЕРА",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(DarkSurfaceVariant)
+                ) {
+                    AVAILABLE_BG_MODES.forEach { option ->
+                        val isSelected = currentBgMode == option.id
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    currentBgMode = option.id
+                                    onBgModeSelected(option.id)
+                                }
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    currentBgMode = option.id
+                                    onBgModeSelected(option.id)
                                 },
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = Color.White,

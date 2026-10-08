@@ -20,8 +20,15 @@ class LibraryRepository(
     private val _favoritesChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val favoritesChanged: SharedFlow<Unit> = _favoritesChanged.asSharedFlow()
 
+    private val _playlistsChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val playlistsChanged: SharedFlow<Unit> = _playlistsChanged.asSharedFlow()
+
     fun notifyFavoritesChanged() {
         _favoritesChanged.tryEmit(Unit)
+    }
+
+    fun notifyPlaylistsChanged() {
+        _playlistsChanged.tryEmit(Unit)
     }
 
     suspend fun getArtists(): List<ArtistDto> = api.getArtists()
@@ -39,6 +46,32 @@ class LibraryRepository(
     }
 
     suspend fun getPlaylists(): List<PlaylistDto> = api.getPlaylists()
+
+    suspend fun createPlaylist(name: String): com.coreplayer.app.data.model.CreatePlaylistResponse {
+        val res = api.createPlaylist(com.coreplayer.app.data.model.CreatePlaylistRequest(name))
+        _playlistsChanged.tryEmit(Unit)
+        return res
+    }
+
+    suspend fun deletePlaylist(playlistId: String) {
+        api.deletePlaylist(playlistId)
+        _playlistsChanged.tryEmit(Unit)
+    }
+
+    suspend fun addTrackToPlaylist(playlistId: String, trackId: String) {
+        api.addTrackToPlaylist(playlistId, com.coreplayer.app.data.model.AddTrackRequest(trackId))
+        _playlistsChanged.tryEmit(Unit)
+    }
+
+    suspend fun removeTrackFromPlaylist(playlistId: String, trackId: String) {
+        api.removeTrackFromPlaylist(playlistId, trackId)
+        _playlistsChanged.tryEmit(Unit)
+    }
+
+    suspend fun reorderPlaylistTracks(playlistId: String, trackIds: List<String>) {
+        api.reorderPlaylistTracks(playlistId, com.coreplayer.app.data.model.ReorderPlaylistRequest(trackIds))
+        _playlistsChanged.tryEmit(Unit)
+    }
 
     suspend fun getPlaylistTracks(playlistId: String): List<TrackDto> {
         return try {
