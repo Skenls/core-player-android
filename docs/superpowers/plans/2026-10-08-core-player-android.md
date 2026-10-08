@@ -69,35 +69,12 @@ git commit -m "chore: scaffold Android project and Gradle build configuration"
 - Consumes: Network connectivity & Core Player FastAPI backend contract
 - Produces: `CorePlayerApi`, `LrcParser.parse(lrcContent: String): List<LyricLine>`, `AuthRepository`, `LibraryRepository`, `LyricsRepository`
 
-- [ ] **Step 1: Write unit tests for `LrcParser`**
-
-Test standard timestamps `[mm:ss.xx]`, offset tags, empty lines, and sorted lines by time.
-
-- [ ] **Step 2: Implement `LrcParser` and data models**
-
-Implement regex timestamp extractor and return `List<LyricLine>`.
-
-- [ ] **Step 3: Run `LrcParserTest` to verify it passes**
-
-Run unit tests via `./gradlew testDebugUnitTest --tests "com.coreplayer.app.data.lyrics.LrcParserTest"`.
-
-- [ ] **Step 4: Implement `InMemoryCookieJar` and `CorePlayerApi` interface**
-
-Setup Retrofit interface for:
-- `/api/auth/login`
-- `/api/auth/me`
-- `/api/library/artists`
-- `/api/library/albums`
-- `/api/library/playlists`
-- `/api/library/favorites/ids`
-- `/api/library/favorites/toggle`
-- `/api/lyrics/{track_id}`
-
-- [ ] **Step 5: Implement Repositories**
-
-Implement `AuthRepository`, `LibraryRepository`, and `LyricsRepository`.
-
-- [ ] **Step 6: Commit data layer**
+- [x] **Step 1: Write unit tests for `LrcParser`**
+- [x] **Step 2: Implement `LrcParser` and data models**
+- [x] **Step 3: Run `LrcParserTest` to verify it passes**
+- [x] **Step 4: Implement `InMemoryCookieJar` and `CorePlayerApi` interface**
+- [x] **Step 5: Implement Repositories**
+- [x] **Step 6: Commit data layer**
 
 ```bash
 git add app/src/main/java/com/coreplayer/app/data/ app/src/test/java/com/coreplayer/app/data/
