@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,10 +62,12 @@ fun ArtistCard(
         Brush.verticalGradient(palettes[idx])
     }
 
+    val cleanedName = com.coreplayer.app.ui.util.cleanArtistName(name).ifBlank { name }
+
     Column(
         modifier = modifier
             .width(cardSize)
-            .clip(cornerShape)
+            .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.Start
     ) {
@@ -78,14 +81,14 @@ fun ArtistCard(
             if (imageUrl.isNullOrBlank()) {
                 Icon(
                     imageVector = Icons.Filled.Person,
-                    contentDescription = name,
+                    contentDescription = cleanedName,
                     tint = Color(0xFF6B7280),
                     modifier = Modifier.size(46.dp)
                 )
             } else {
                 AsyncImage(
                     model = imageUrl,
-                    contentDescription = name,
+                    contentDescription = cleanedName,
                     contentScale = ContentScale.Crop,
                     placeholder = rememberVectorPainter(Icons.Filled.Person),
                     error = rememberVectorPainter(Icons.Filled.Person),
@@ -93,14 +96,16 @@ fun ArtistCard(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = name,
+            text = cleanedName,
             color = TextPrimary,
-            fontSize = 14.sp,
+            fontSize = 13.5.sp,
             fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            maxLines = 2,
+            lineHeight = 16.sp,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 2.dp)
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
@@ -109,7 +114,8 @@ fun ArtistCard(
             fontSize = 12.sp,
             fontWeight = FontWeight.Normal,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 2.dp)
         )
     }
 }

@@ -58,7 +58,7 @@ fun RecentTrackCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(58.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(Color(0xFF1E222B))
             .clickable(
@@ -71,7 +71,7 @@ fun RecentTrackCard(
         // Left: Album artwork
         Box(
             modifier = Modifier
-                .size(56.dp)
+                .size(58.dp)
                 .clip(RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp))
                 .background(DarkSurfaceVariant),
             contentAlignment = Alignment.Center
@@ -90,7 +90,7 @@ fun RecentTrackCard(
                     contentScale = ContentScale.Crop,
                     placeholder = rememberVectorPainter(Icons.Filled.MusicNote),
                     error = rememberVectorPainter(Icons.Filled.MusicNote),
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier.size(58.dp)
                 )
             }
         }
@@ -101,19 +101,23 @@ fun RecentTrackCard(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(end = 8.dp)
+                .padding(end = 10.dp)
         ) {
             Text(
                 text = track.title,
-                fontSize = 13.sp,
+                fontSize = 12.5.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary,
-                maxLines = 1,
+                maxLines = 2,
+                lineHeight = 15.sp,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
+            val cleanedArtist = com.coreplayer.app.ui.util.cleanArtistName(track.artist).ifBlank {
+                track.artist.ifBlank { "Неизвестный исполнитель" }
+            }
             Text(
-                text = track.artist.ifBlank { "Неизвестный исполнитель" },
+                text = cleanedArtist,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Normal,
                 color = TextSecondary,

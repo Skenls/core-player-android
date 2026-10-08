@@ -31,14 +31,23 @@ class LibraryRepository(
         _playlistsChanged.tryEmit(Unit)
     }
 
-    suspend fun getArtists(): List<ArtistDto> = api.getArtists()
+    private fun cleanTrack(track: TrackDto): TrackDto {
+        val cleaned = com.coreplayer.app.ui.util.cleanArtistName(track.artist)
+        return if (cleaned != track.artist) track.copy(artist = cleaned) else track
+    }
+
+    suspend fun getArtists(): List<ArtistDto> =
+        api.getArtists().filterNot { com.coreplayer.app.ui.util.isFio(it.name) }
 
     suspend fun getAlbums(type: String? = null, size: Int? = null): List<AlbumDto> =
-        api.getAlbums(type = type, size = size)
+        api.getAlbums(type = type, size = size).map {
+            val cleaned = com.coreplayer.app.ui.util.cleanArtistName(it.artist)
+            if (cleaned != it.artist) it.copy(artist = cleaned) else it
+        }
 
     suspend fun getAlbumTracks(albumId: String): List<TrackDto> {
         return try {
-            api.getAlbum(albumId).album.song
+            api.getAlbum(albumId).album.song.map { cleanTrack(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch tracks for album $albumId", e)
             emptyList()
@@ -75,7 +84,7 @@ class LibraryRepository(
 
     suspend fun getPlaylistTracks(playlistId: String): List<TrackDto> {
         return try {
-            api.getPlaylist(playlistId).playlist.entry
+            api.getPlaylist(playlistId).playlist.entry.map { cleanTrack(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch tracks for playlist $playlistId", e)
             emptyList()
@@ -90,11 +99,11 @@ class LibraryRepository(
         return response
     }
 
-    suspend fun getFavoriteTracks(): List<TrackDto> = api.getFavoriteTracks()
+    suspend fun getFavoriteTracks(): List<TrackDto> = api.getFavoriteTracks().map { cleanTrack(it) }
 
     suspend fun getRandomTracks(size: Int = 100): List<TrackDto> {
         return try {
-            api.getRandomTracks(size)
+            api.getRandomTracks(size).map { cleanTrack(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch random tracks", e)
             emptyList()
@@ -105,7 +114,7 @@ class LibraryRepository(
         val trimmed = query.trim()
         if (trimmed.length < 2) return emptyList()
         return try {
-            api.search(trimmed).tracks
+            api.search(trimmed).tracks.map { cleanTrack(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Search failed for query: $trimmed", e)
             emptyList()

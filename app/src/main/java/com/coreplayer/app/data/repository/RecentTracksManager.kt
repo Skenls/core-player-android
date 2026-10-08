@@ -28,16 +28,20 @@ class RecentTracksManager(
     fun loadRecent(): List<TrackDto> {
         val json = prefs.getString(KEY_RECENT, null) ?: return emptyList()
         return try {
-            (adapter.fromJson(json) ?: emptyList()).take(MAX_RECENT)
+            (adapter.fromJson(json) ?: emptyList()).take(MAX_RECENT).map {
+                val cleaned = com.coreplayer.app.ui.util.cleanArtistName(it.artist)
+                if (cleaned != it.artist) it.copy(artist = cleaned) else it
+            }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
     fun addTrack(track: TrackDto) {
+        val cleanedTrack = track.copy(artist = com.coreplayer.app.ui.util.cleanArtistName(track.artist))
         val current = _recentTracks.value.toMutableList()
-        current.removeAll { it.id == track.id }
-        current.add(0, track)
+        current.removeAll { it.id == cleanedTrack.id }
+        current.add(0, cleanedTrack)
         val trimmed = current.take(MAX_RECENT)
         saveRecent(trimmed)
     }

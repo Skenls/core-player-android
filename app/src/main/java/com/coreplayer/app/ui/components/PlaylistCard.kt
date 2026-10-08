@@ -51,6 +51,7 @@ fun PlaylistCard(
     modifier: Modifier = Modifier,
     cardSize: Dp = 140.dp,
     customGradient: Brush? = null,
+    showPlayButton: Boolean = true,
     onClick: () -> Unit = {},
     onPlayClick: () -> Unit = onClick
 ) {
@@ -62,11 +63,11 @@ fun PlaylistCard(
     Column(
         modifier = modifier
             .width(cardSize)
-            .clip(cornerShape)
+            .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.Start
     ) {
-        // Cover container with 22dp rounded corners and translucent play button
+        // Cover container with 22dp rounded corners and optional translucent play button
         Box(
             modifier = Modifier
                 .size(cardSize)
@@ -82,48 +83,54 @@ fun PlaylistCard(
                 )
             }
 
-            // Translucent circular play button in bottom-left corner matching mockup
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(10.dp)
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.55f))
-                    .clickable(onClick = onPlayClick),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Воспроизвести $title",
-                    tint = Color.White,
+            // Translucent circular play button in bottom-left corner
+            if (showPlayButton) {
+                Box(
                     modifier = Modifier
-                        .size(20.dp)
-                        .padding(start = 2.dp)
-                )
+                        .align(Alignment.BottomStart)
+                        .padding(10.dp)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .clickable(onClick = onPlayClick),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.PlayArrow,
+                        contentDescription = "Воспроизвести $title",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .padding(start = 2.dp)
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         Text(
             text = title,
             color = TextPrimary,
-            fontSize = 15.sp,
+            fontSize = 14.5.sp,
             fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            maxLines = 2,
+            lineHeight = 18.sp,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 2.dp)
         )
 
         Spacer(modifier = Modifier.height(2.dp))
 
+        val cleanedSubtitle = com.coreplayer.app.ui.util.cleanArtistName(subtitle).ifBlank { subtitle }
         Text(
-            text = subtitle,
+            text = cleanedSubtitle,
             color = Color(0xFF8E95A5),
-            fontSize = 13.sp,
+            fontSize = 12.5.sp,
             fontWeight = FontWeight.Normal,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 2.dp)
         )
     }
 }
@@ -139,6 +146,7 @@ fun PlaylistCard(
     modifier: Modifier = Modifier,
     cardSize: Dp = 140.dp,
     customGradient: Brush? = null,
+    showPlayButton: Boolean = true,
     onClick: () -> Unit = {},
     onPlayClick: () -> Unit = onClick
 ) {
@@ -150,6 +158,7 @@ fun PlaylistCard(
         modifier = modifier,
         cardSize = cardSize,
         customGradient = customGradient,
+        showPlayButton = showPlayButton,
         onClick = onClick,
         onPlayClick = onPlayClick
     )
