@@ -86,6 +86,12 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
             prefs.edit().putString("player_bg_mode", value).apply()
         }
 
+    var adaptiveBubbleColor: Boolean
+        get() = prefs.getBoolean("adaptive_bubble_color", true)
+        set(value) {
+            prefs.edit().putBoolean("adaptive_bubble_color", value).apply()
+        }
+
     fun updateCodec(newCodec: String) {
         audioCodec = newCodec
         if (::playerController.isInitialized) {
