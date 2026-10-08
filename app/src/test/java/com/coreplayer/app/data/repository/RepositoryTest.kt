@@ -118,6 +118,13 @@ class RepositoryTest {
         assertTrue(results.isEmpty())
     }
 
+    @Test
+    fun libraryRepository_getRandomTracks_returnsTracks() = runTest {
+        val tracks = libraryRepository.getRandomTracks(10)
+        assertEquals(1, tracks.size)
+        assertEquals("Lucky", tracks[0].title)
+    }
+
     private class FakeCorePlayerApi : CorePlayerApi {
         override suspend fun login(request: LoginRequest): UserDto {
             return UserDto(id = "usr-${request.username}", username = request.username, role = "user")
@@ -153,6 +160,10 @@ class RepositoryTest {
 
         override suspend fun getFavoriteTracks(): List<TrackDto> {
             return listOf(TrackDto(id = "trk-1", title = "Paranoid Android", artist = "Radiohead", duration = 383))
+        }
+
+        override suspend fun getRandomTracks(size: Int): List<TrackDto> {
+            return listOf(TrackDto(id = "trk-rnd-1", title = "Lucky", artist = "Radiohead", duration = 259))
         }
 
         override suspend fun search(query: String): com.coreplayer.app.data.model.SearchResponse {

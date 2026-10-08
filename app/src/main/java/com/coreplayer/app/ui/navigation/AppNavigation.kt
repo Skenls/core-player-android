@@ -29,6 +29,7 @@ import com.coreplayer.app.data.repository.LyricsRepository
 import com.coreplayer.app.player.PlayerControllerManager
 import com.coreplayer.app.ui.components.BottomNavBar
 import com.coreplayer.app.ui.components.FloatingMiniPlayer
+import com.coreplayer.app.ui.screens.browse.BrowseScreen
 import com.coreplayer.app.ui.screens.home.HomeScreen
 import com.coreplayer.app.ui.screens.library.LibraryScreen
 import com.coreplayer.app.ui.screens.login.LoginScreen
@@ -41,6 +42,7 @@ sealed class Screen(val route: String) {
     data object Login : Screen("login")
     data object Home : Screen("home")
     data object Search : Screen("search")
+    data object Browse : Screen("browse")
     data object Library : Screen("library")
 }
 
@@ -95,6 +97,7 @@ fun AppNavigation(
     val isBottomBarVisible = currentRoute != Screen.Login.route
     val activeNavRoute = when {
         currentRoute.startsWith("library") -> Screen.Library.route
+        currentRoute.startsWith("browse") -> Screen.Browse.route
         else -> currentRoute
     }
 
@@ -183,6 +186,23 @@ fun AppNavigation(
                 SearchScreen(
                     libraryRepository = libraryRepository,
                     playerController = playerController
+                )
+            }
+
+            composable(
+                route = "browse?tab={tab}",
+                arguments = listOf(
+                    navArgument("tab") {
+                        defaultValue = 0
+                        type = NavType.IntType
+                    }
+                )
+            ) { backStackEntry ->
+                val tab = backStackEntry.arguments?.getInt("tab") ?: 0
+                BrowseScreen(
+                    libraryRepository = libraryRepository,
+                    playerController = playerController,
+                    initialTab = tab
                 )
             }
 

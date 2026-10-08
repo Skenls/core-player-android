@@ -47,10 +47,10 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.coreplayer.app.data.model.TrackDto
 import com.coreplayer.app.data.repository.LibraryRepository
+import androidx.compose.ui.graphics.Color
 import com.coreplayer.app.player.PlayerControllerManager
 import com.coreplayer.app.player.formatTime
 import com.coreplayer.app.ui.screens.nowplaying.resolveCoverUrl
-import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CardTitleStyle
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.DarkBackground
@@ -140,7 +140,7 @@ fun SearchScreenContent(
                 Icon(
                     imageVector = Icons.Filled.Search,
                     contentDescription = "Поиск",
-                    tint = if (query.isNotBlank()) AccentOrange else TextSecondary
+                    tint = if (query.isNotBlank()) Color.White else TextSecondary
                 )
             },
             trailingIcon = {
@@ -159,7 +159,7 @@ fun SearchScreenContent(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = DarkSurface,
                 unfocusedContainerColor = DarkSurface,
-                focusedBorderColor = AccentOrange,
+                focusedBorderColor = Color.White,
                 unfocusedBorderColor = SubtleDivider,
                 focusedTextColor = TextPrimary,
                 unfocusedTextColor = TextPrimary
@@ -176,7 +176,7 @@ fun SearchScreenContent(
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
-                    color = AccentOrange,
+                    color = Color.White,
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else if (query.isBlank()) {

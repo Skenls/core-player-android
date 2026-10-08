@@ -51,9 +51,9 @@ import com.coreplayer.app.ui.components.ArtistCard
 import com.coreplayer.app.ui.components.FavoritesBanner
 import com.coreplayer.app.ui.components.PlaylistCard
 import com.coreplayer.app.ui.components.RecentTrackCard
+import androidx.compose.ui.graphics.Color
 import com.coreplayer.app.ui.util.resolveArtistImageUrl
 import com.coreplayer.app.ui.util.resolveCoverUrl
-import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CoreLogoStyle
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.DarkBackground
@@ -146,7 +146,7 @@ fun HomeScreenContent(
     ) {
         if (uiState.isLoading && uiState.artists.isEmpty() && uiState.playlists.isEmpty()) {
             CircularProgressIndicator(
-                color = AccentOrange,
+                color = Color.White,
                 modifier = Modifier.align(Alignment.Center)
             )
         } else if (uiState.error != null && uiState.artists.isEmpty() && uiState.playlists.isEmpty()) {
@@ -164,9 +164,9 @@ fun HomeScreenContent(
                 )
                 Button(
                     onClick = onRetry,
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
                 ) {
-                    Text(text = "Повторить", color = TextPrimary)
+                    Text(text = "Повторить", color = Color.Black)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 androidx.compose.material3.OutlinedButton(

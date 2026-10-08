@@ -77,6 +77,11 @@ interface CorePlayerApi {
     @GET("api/library/favorites/tracks")
     suspend fun getFavoriteTracks(): List<TrackDto>
 
+    @GET("api/library/random")
+    suspend fun getRandomTracks(
+        @Query("size") size: Int = 100
+    ): List<TrackDto>
+
     @GET("api/library/search")
     suspend fun search(
         @Query("query") query: String

@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -37,10 +36,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -49,16 +50,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.coreplayer.app.data.model.AlbumDto
 import com.coreplayer.app.data.model.PlaylistDto
 import com.coreplayer.app.data.model.TrackDto
 import com.coreplayer.app.data.repository.LibraryRepository
 import com.coreplayer.app.player.PlayerControllerManager
 import com.coreplayer.app.player.formatTime
+import com.coreplayer.app.ui.components.FavoritesBanner
 import com.coreplayer.app.ui.components.PlaylistCard
-import com.coreplayer.app.ui.components.formatTracksCount
-import com.coreplayer.app.ui.screens.nowplaying.resolveCoverUrl
-import com.coreplayer.app.ui.theme.AccentOrange
+import com.coreplayer.app.ui.util.resolveCoverUrl
 import com.coreplayer.app.ui.theme.CardTitleStyle
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.DarkBackground
@@ -66,11 +65,11 @@ import com.coreplayer.app.ui.theme.DarkSurfaceVariant
 import com.coreplayer.app.ui.theme.SectionTitleStyle
 import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 
 enum class LibraryTab(val title: String) {
-    FAVORITES("Избранное"),
-    PLAYLISTS("Плейлисты"),
-    ALBUMS("Альбомы")
+    FAVORITES("Мои треки"),
+    PLAYLISTS("Плейлисты")
 }
 
 @Composable
@@ -80,18 +79,31 @@ fun LibraryScreen(
     modifier: Modifier = Modifier,
     initialTab: Int = 0
 ) {
-    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab) }
+    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab.coerceIn(0, 1)) }
     var favorites by remember { mutableStateOf<List<TrackDto>>(emptyList()) }
     var playlists by remember { mutableStateOf<List<PlaylistDto>>(emptyList()) }
-    var albums by remember { mutableStateOf<List<AlbumDto>>(emptyList()) }
+    var playlistCovers by remember { mutableStateOf<Map<String, String?>>(emptyMap()) }
     var isLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         isLoading = true
         try {
             favorites = libraryRepository.getFavoriteTracks()
-            playlists = libraryRepository.getPlaylists()
-            albums = libraryRepository.getAlbums()
+            val fetchedPlaylists = libraryRepository.getPlaylists()
+            playlists = fetchedPlaylists
+
+            // Resolve first track's cover art for playlists without custom covers
+            val covers = mutableMapOf<String, String?>()
+            for (pl in fetchedPlaylists) {
+                if (!pl.coverArt.isNullOrBlank()) {
+                    covers[pl.id] = pl.coverArt
+                } else {
+                    val tracks = libraryRepository.getPlaylistTracks(pl.id)
+                    covers[pl.id] = tracks.firstOrNull()?.coverArt
+                }
+            }
+            playlistCovers = covers
         } catch (e: Exception) {
             android.util.Log.e("LibraryScreen", "Failed to load library data", e)
         } finally {
@@ -104,21 +116,19 @@ fun LibraryScreen(
         onTabSelected = { selectedTab = it },
         favorites = favorites,
         playlists = playlists,
-        albums = albums,
+        playlistCovers = playlistCovers,
         isLoading = isLoading,
         baseUrl = playerController.baseUrl,
         onTrackClick = { track ->
             playerController.playTrack(track, favorites)
         },
         onPlaylistClick = { playlist ->
-            val track = TrackDto(id = playlist.id, title = playlist.name, artist = "Плейлист", coverArt = playlist.coverArt)
-            val queue = if (favorites.isNotEmpty()) favorites else listOf(track)
-            playerController.playTrack(track, queue)
-        },
-        onAlbumClick = { album ->
-            val track = TrackDto(id = album.id, title = album.name, artist = album.artist ?: "", coverArt = album.coverArt)
-            val queue = if (favorites.isNotEmpty()) favorites else listOf(track)
-            playerController.playTrack(track, queue)
+            scope.launch {
+                val tracks = libraryRepository.getPlaylistTracks(playlist.id)
+                if (tracks.isNotEmpty()) {
+                    playerController.playTrack(tracks.first(), tracks)
+                }
+            }
         },
         modifier = modifier
     )
@@ -130,12 +140,11 @@ fun LibraryScreenContent(
     onTabSelected: (Int) -> Unit,
     favorites: List<TrackDto>,
     playlists: List<PlaylistDto>,
-    albums: List<AlbumDto>,
+    playlistCovers: Map<String, String?> = emptyMap(),
     isLoading: Boolean,
     baseUrl: String,
     onTrackClick: (TrackDto) -> Unit,
     onPlaylistClick: (PlaylistDto) -> Unit,
-    onAlbumClick: (AlbumDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tabs = LibraryTab.entries
@@ -160,7 +169,7 @@ fun LibraryScreenContent(
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
                     modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                    color = AccentOrange
+                    color = Color.White
                 )
             },
             divider = {}
@@ -189,26 +198,53 @@ fun LibraryScreenContent(
                 .fillMaxSize()
                 .weight(1f)
         ) {
-            if (isLoading && favorites.isEmpty() && playlists.isEmpty() && albums.isEmpty()) {
+            if (isLoading && favorites.isEmpty() && playlists.isEmpty()) {
                 CircularProgressIndicator(
-                    color = AccentOrange,
+                    color = Color.White,
                     modifier = Modifier.align(Alignment.Center)
                 )
             } else {
                 when (tabs[selectedTabIndex]) {
                     LibraryTab.FAVORITES -> {
-                        if (favorites.isEmpty()) {
-                            Text(
-                                text = "Нет избранных треков",
-                                color = TextSecondary,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        } else {
-                            LazyColumn(
-                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
+                        LazyColumn(
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            item {
+                                FavoritesBanner(
+                                    trackCount = favorites.size,
+                                    imageUrl = favorites.firstOrNull()?.coverArt?.let { resolveCoverUrl(it, baseUrl) },
+                                    isFavorite = true,
+                                    onClick = {
+                                        if (favorites.isNotEmpty()) {
+                                            onTrackClick(favorites.first())
+                                        }
+                                    },
+                                    onFavoriteClick = {
+                                        if (favorites.isNotEmpty()) {
+                                            onTrackClick(favorites.first())
+                                        }
+                                    },
+                                    modifier = Modifier.padding(bottom = 12.dp)
+                                )
+                            }
+
+                            if (favorites.isEmpty() && !isLoading) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Нет избранных треков",
+                                            color = TextSecondary
+                                        )
+                                    }
+                                }
+                            } else {
                                 items(favorites, key = { it.id }) { track ->
                                     LibraryTrackItem(
                                         track = track,
@@ -236,41 +272,13 @@ fun LibraryScreenContent(
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 items(playlists, key = { it.id }) { playlist ->
+                                    val resolvedArt = playlist.coverArt ?: playlistCovers[playlist.id]
                                     PlaylistCard(
                                         playlist = playlist,
-                                        coverUrl = resolveCoverUrl(playlist.coverArt, baseUrl),
+                                        coverUrl = resolveCoverUrl(resolvedArt, baseUrl),
                                         cardSize = 160.dp,
                                         onClick = { onPlaylistClick(playlist) },
                                         onPlayClick = { onPlaylistClick(playlist) }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    LibraryTab.ALBUMS -> {
-                        if (albums.isEmpty()) {
-                            Text(
-                                text = "Нет альбомов",
-                                color = TextSecondary,
-                                modifier = Modifier.align(Alignment.Center)
-                            )
-                        } else {
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
-                                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                items(albums, key = { it.id }) { album ->
-                                    PlaylistCard(
-                                        title = album.name,
-                                        subtitle = album.artist ?: "",
-                                        coverUrl = resolveCoverUrl(album.coverArt, baseUrl),
-                                        cardSize = 160.dp,
-                                        onClick = { onAlbumClick(album) },
-                                        onPlayClick = { onAlbumClick(album) }
                                     )
                                 }
                             }
@@ -367,12 +375,11 @@ private fun LibraryScreenPreview() {
                 TrackDto(id = "1", title = "Pretty Girls", artist = "Kai Angel", duration = 184)
             ),
             playlists = emptyList(),
-            albums = emptyList(),
+            playlistCovers = emptyMap(),
             isLoading = false,
             baseUrl = "",
             onTrackClick = {},
-            onPlaylistClick = {},
-            onAlbumClick = {}
+            onPlaylistClick = {}
         )
     }
 }

@@ -31,7 +31,7 @@ class ThemeTest {
         assertEquals(DarkBackground, CorePlayerColorScheme.background)
         assertEquals(DarkSurface, CorePlayerColorScheme.surface)
         assertEquals(DarkSurfaceVariant, CorePlayerColorScheme.surfaceVariant)
-        assertEquals(AccentOrange, CorePlayerColorScheme.primary)
+        assertEquals(TextPrimary, CorePlayerColorScheme.primary)
         assertEquals(TextPrimary, CorePlayerColorScheme.onBackground)
         assertEquals(TextPrimary, CorePlayerColorScheme.onSurface)
         assertEquals(TextSecondary, CorePlayerColorScheme.onSurfaceVariant)
@@ -71,19 +71,23 @@ class ThemeTest {
 
     @Test
     fun bottomNavItems_matchRequirements() {
-        assertEquals(3, BottomNavItem.items.size)
+        assertEquals(4, BottomNavItem.items.size)
 
         val home = BottomNavItem.items[0]
         assertEquals("home", home.route)
-        assertEquals("Home", home.label)
+        assertEquals("Главная", home.label)
 
         val search = BottomNavItem.items[1]
         assertEquals("search", search.route)
-        assertEquals("Search", search.label)
+        assertEquals("Поиск", search.label)
 
-        val library = BottomNavItem.items[2]
+        val browse = BottomNavItem.items[2]
+        assertEquals("browse", browse.route)
+        assertEquals("Все треки", browse.label)
+
+        val library = BottomNavItem.items[3]
         assertEquals("library", library.route)
-        assertEquals("Library", library.label)
+        assertEquals("Медиатека", library.label)
     }
 
     @Test

@@ -46,6 +46,15 @@ class LibraryRepository(
 
     suspend fun getFavoriteTracks(): List<TrackDto> = api.getFavoriteTracks()
 
+    suspend fun getRandomTracks(size: Int = 100): List<TrackDto> {
+        return try {
+            api.getRandomTracks(size)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch random tracks", e)
+            emptyList()
+        }
+    }
+
     suspend fun search(query: String): List<TrackDto> {
         val trimmed = query.trim()
         if (trimmed.length < 2) return emptyList()

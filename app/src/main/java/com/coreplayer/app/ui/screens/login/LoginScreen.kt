@@ -50,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.coreplayer.app.CorePlayerApp
 import com.coreplayer.app.data.repository.AuthRepository
-import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CoreLogoStyle
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.DarkBackground
@@ -81,15 +80,15 @@ fun LoginScreen(
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedContainerColor = DarkSurface,
         unfocusedContainerColor = DarkSurface,
-        focusedBorderColor = AccentOrange,
+        focusedBorderColor = Color.White,
         unfocusedBorderColor = SubtleDivider,
         focusedTextColor = TextPrimary,
         unfocusedTextColor = TextPrimary,
-        focusedLabelColor = AccentOrange,
+        focusedLabelColor = Color.White,
         unfocusedLabelColor = TextSecondary,
-        focusedLeadingIconColor = AccentOrange,
+        focusedLeadingIconColor = Color.White,
         unfocusedLeadingIconColor = TextSecondary,
-        focusedTrailingIconColor = AccentOrange,
+        focusedTrailingIconColor = Color.White,
         unfocusedTrailingIconColor = TextSecondary
     )
 
@@ -252,8 +251,10 @@ fun LoginScreen(
                 enabled = !isLoading,
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentOrange,
-                    disabledContainerColor = AccentOrange.copy(alpha = 0.5f)
+                    containerColor = Color.White,
+                    contentColor = Color.Black,
+                    disabledContainerColor = Color.White.copy(alpha = 0.5f),
+                    disabledContentColor = Color.Black.copy(alpha = 0.5f)
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -261,14 +262,14 @@ fun LoginScreen(
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
-                        color = Color.White,
+                        color = Color.Black,
                         strokeWidth = 2.dp,
                         modifier = Modifier.size(24.dp)
                     )
                 } else {
                     Text(
                         text = "Войти",
-                        color = TextPrimary,
+                        color = Color.Black,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )

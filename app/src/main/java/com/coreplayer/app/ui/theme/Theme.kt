@@ -8,9 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 
 val CorePlayerColorScheme = darkColorScheme(
-    primary = AccentOrange,
-    onPrimary = TextPrimary,
-    primaryContainer = AccentOrangeVibrant,
+    primary = TextPrimary,
+    onPrimary = DarkBackground,
+    primaryContainer = DarkSurfaceVariant,
     onPrimaryContainer = TextPrimary,
     background = DarkBackground,
     onBackground = TextPrimary,

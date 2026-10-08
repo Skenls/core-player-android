@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
@@ -45,27 +47,34 @@ sealed class BottomNavItem(
 ) {
     data object Home : BottomNavItem(
         route = "home",
-        label = "Home",
+        label = "Главная",
         icon = Icons.Outlined.Home,
         selectedIcon = Icons.Filled.Home
     )
 
     data object Search : BottomNavItem(
         route = "search",
-        label = "Search",
+        label = "Поиск",
         icon = Icons.Outlined.Search,
         selectedIcon = Icons.Filled.Search
     )
 
+    data object Browse : BottomNavItem(
+        route = "browse",
+        label = "Все треки",
+        icon = Icons.AutoMirrored.Outlined.QueueMusic,
+        selectedIcon = Icons.AutoMirrored.Filled.QueueMusic
+    )
+
     data object Library : BottomNavItem(
         route = "library",
-        label = "Library",
+        label = "Медиатека",
         icon = Icons.Outlined.LibraryMusic,
         selectedIcon = Icons.Filled.LibraryMusic
     )
 
     companion object {
-        val items = listOf(Home, Search, Library)
+        val items = listOf(Home, Search, Browse, Library)
     }
 }
 
