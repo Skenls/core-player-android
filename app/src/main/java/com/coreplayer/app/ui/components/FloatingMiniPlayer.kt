@@ -1,17 +1,12 @@
 package com.coreplayer.app.ui.components
 
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -177,35 +172,46 @@ fun FloatingMiniPlayer(
                     },
                     onDragEnd = {
                         if (dragDirection == "V" && totalDragY < -20f) {
-                            // Swipe up: immediately expand sheet in parallel
+                            // Swipe up: expand sheet and smoothly return mini player offset
                             onClick()
                             coroutineScope.launch {
-                                animOffsetY.animateTo(-30f, tween(90))
-                                animOffsetY.snapTo(0f)
-                                animScale.snapTo(1f)
+                                animOffsetY.animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                )
+                                animScale.animateTo(
+                                    targetValue = 1f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                )
                             }
-                        } else if (dragDirection == "H" && totalDragX < -35f && onSkipNext != null) {
-                            // Swipe left: immediately advance track and do quick flick transition
-                            onSkipNext()
-                            coroutineScope.launch {
-                                animOffsetX.animateTo(-140f, tween(75))
-                                animOffsetX.snapTo(100f)
-                                animOffsetX.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
+                        } else if (dragDirection == "H") {
+                            val threshold = 40f
+                            if (totalDragX < -threshold && onSkipNext != null) {
+                                onSkipNext()
+                            } else if (totalDragX > threshold && onSkipPrevious != null) {
+                                onSkipPrevious()
                             }
-                        } else if (dragDirection == "H" && totalDragX > 35f && onSkipPrevious != null) {
-                            // Swipe right: immediately go to previous track and do quick flick transition
-                            onSkipPrevious()
                             coroutineScope.launch {
-                                animOffsetX.animateTo(140f, tween(75))
-                                animOffsetX.snapTo(-100f)
-                                animOffsetX.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
+                                animOffsetX.animateTo(
+                                    targetValue = 0f,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMedium
+                                    )
+                                )
                             }
                         } else {
-                            // Reset to resting position
+                            // Settle back to resting position smoothly
                             coroutineScope.launch {
-                                animOffsetX.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 800f))
-                                animOffsetY.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 800f))
-                                animScale.animateTo(1f, spring(dampingRatio = 0.8f, stiffness = 800f))
+                                animOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                                animOffsetY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                                animScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
                             }
                         }
                         dragDirection = null
@@ -214,35 +220,38 @@ fun FloatingMiniPlayer(
                     },
                     onDragCancel = {
                         coroutineScope.launch {
-                            animOffsetX.animateTo(0f, spring())
-                            animOffsetY.animateTo(0f, spring())
-                            animScale.animateTo(1f, spring())
+                            animOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                            animOffsetY.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
+                            animScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium))
                             dragDirection = null
                             totalDragX = 0f
                             totalDragY = 0f
                         }
                     },
                     onDrag = { change, dragAmount ->
-                        change.consume()
                         totalDragX += dragAmount.x
                         totalDragY += dragAmount.y
 
                         if (dragDirection == null) {
                             if (abs(totalDragX) > 12f && abs(totalDragX) > abs(totalDragY)) {
                                 dragDirection = "H"
-                            } else if (totalDragY < -12f) {
+                            } else if (totalDragY < -12f && abs(totalDragY) > abs(totalDragX)) {
                                 dragDirection = "V"
                             }
                         }
 
+                        if (dragDirection != null) {
+                            change.consume()
+                        }
+
                         if (dragDirection == "H") {
                             coroutineScope.launch {
-                                animOffsetX.snapTo(totalDragX.coerceIn(-100f, 100f))
+                                animOffsetX.snapTo(totalDragX.coerceIn(-130f, 130f))
                             }
                         } else if (dragDirection == "V" && totalDragY < 0f) {
                             coroutineScope.launch {
                                 animOffsetY.snapTo(totalDragY.coerceAtLeast(-45f))
-                                val scaleVal = 1f + (-totalDragY / 350f).coerceIn(0f, 0.05f)
+                                val scaleVal = 1f + (-totalDragY / 400f).coerceIn(0f, 0.04f)
                                 animScale.snapTo(scaleVal)
                             }
                         }
@@ -322,43 +331,34 @@ fun FloatingMiniPlayer(
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Center: Track title and artist name with smooth sliding transition
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clipToBounds(),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                AnimatedContent(
-                    targetState = Pair(trackTitle, artistName),
-                    transitionSpec = {
-                        (slideInHorizontally(tween(130)) { width -> width / 3 } + fadeIn(tween(130)))
-                            .togetherWith(slideOutHorizontally(tween(130)) { width -> -width / 3 } + fadeOut(tween(130)))
-                    },
-                    label = "miniPlayerTextTransition"
-                ) { (title, artist) ->
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = title,
-                            color = TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = artist,
-                            color = Color(0xFF9CA3AF),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Normal,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+            // Center: Track title and artist name with smooth crossfade
+            Crossfade(
+                targetState = Pair(trackTitle, artistName),
+                animationSpec = tween(200),
+                modifier = Modifier.weight(1f),
+                label = "miniPlayerTextCrossfade"
+            ) { (title, artist) ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = title,
+                        color = TextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = artist,
+                        color = Color(0xFF9CA3AF),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
 

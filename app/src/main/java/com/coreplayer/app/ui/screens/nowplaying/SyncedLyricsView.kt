@@ -1,9 +1,12 @@
 package com.coreplayer.app.ui.screens.nowplaying
 
 import android.os.Build
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,7 +32,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
@@ -138,11 +144,33 @@ fun SyncedLyricsView(
 
     val listState = rememberLazyListState()
 
-    val isScrolling = listState.isScrollInProgress
+    var isAutofocusActive by remember { mutableStateOf(true) }
 
-    // Smooth auto-scroll to active line, centering it one line higher in view
-    LaunchedEffect(activeIndex, isScrolling) {
-        if (!isScrolling && activeIndex in lyrics.indices) {
+    // When lyrics collection changes (new song), reset autofocus
+    LaunchedEffect(lyrics) {
+        isAutofocusActive = true
+    }
+
+    // Detect user manual dragging on the lyrics list: drop autofocus immediately
+    LaunchedEffect(listState.interactionSource) {
+        listState.interactionSource.interactions.collect { interaction ->
+            if (interaction is DragInteraction.Start) {
+                isAutofocusActive = false
+            }
+        }
+    }
+
+    // When autofocus is dropped, wait until scrolling finishes + 2.5 seconds idle time, then restore autofocus
+    LaunchedEffect(isAutofocusActive, listState.isScrollInProgress) {
+        if (!isAutofocusActive && !listState.isScrollInProgress) {
+            delay(2500L)
+            isAutofocusActive = true
+        }
+    }
+
+    // Smooth auto-scroll to active line, centering it one line higher in view when autofocus is active
+    LaunchedEffect(activeIndex, isAutofocusActive) {
+        if (isAutofocusActive && activeIndex in lyrics.indices) {
             val viewportHeight = listState.layoutInfo.viewportSize.height
             val centerOffset = if (viewportHeight > 0) -(viewportHeight / 4) else 0
             listState.animateScrollToItem(
@@ -164,22 +192,32 @@ fun SyncedLyricsView(
         ) { index, line ->
             val isActive = index == activeIndex
 
+            val targetAlpha = if (isActive) 1f else if (!isAutofocusActive) 0.72f else 0.32f
             val alpha by animateFloatAsState(
-                targetValue = if (isActive) 1f else if (isScrolling) 0.65f else 0.35f,
-                animationSpec = tween(150),
+                targetValue = targetAlpha,
+                animationSpec = spring(),
                 label = "lyricAlpha_$index"
             )
 
             val scale by animateFloatAsState(
                 targetValue = if (isActive) 1.05f else 1f,
-                animationSpec = tween(150),
+                animationSpec = spring(),
                 label = "lyricScale_$index"
             )
 
-            // Remove blur when user is scrolling so text is instantly readable,
-            // and use static blur without continuous animateDpAsState to prevent lag on battery saver
-            val blurModifier = if (!isActive && !isScrolling && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                Modifier.blur(2.dp)
+            // Blur behavior (Apple Music style):
+            // When autofocus is active: inactive lines are blurred by 2.5dp, active line is clear (0dp).
+            // When user starts scrolling (loss of focus): unblur all lines completely (0dp) for comfortable reading!
+            // When autofocus restores (after 2.5s idle or tap): return blur!
+            val targetBlur = if (isAutofocusActive && !isActive) 2.5.dp else 0.dp
+            val blurRadius by animateDpAsState(
+                targetValue = targetBlur,
+                animationSpec = spring(),
+                label = "lyricBlur_$index"
+            )
+
+            val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.dp) {
+                Modifier.blur(blurRadius)
             } else {
                 Modifier
             }
@@ -197,7 +235,10 @@ fun SyncedLyricsView(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = true),
-                        onClick = { onSeekTo(line.timestampMs) }
+                        onClick = {
+                            onSeekTo(line.timestampMs)
+                            isAutofocusActive = true
+                        }
                     )
                     .padding(vertical = 10.dp, horizontal = 12.dp)
             ) {
