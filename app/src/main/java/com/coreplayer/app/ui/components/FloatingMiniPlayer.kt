@@ -1,8 +1,10 @@
 package com.coreplayer.app.ui.components
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +38,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,9 +58,9 @@ import com.coreplayer.app.ui.theme.TextPrimary
  * Sits elevated above the bottom navigation bar with:
  * - Stadium capsule shape (CircleShape)
  * - Twilight cyan-tinted glassmorphic background gradient
- * - Layered play button: vibrant orange badge + white inner circle + black play/pause icon
+ * - Circular progress ring around the white play button filling with playback
  * - White title + silver artist text
- * - Clean white outlined heart icon (or filled orange/red when favorited)
+ * - Clean white outlined heart icon (or filled red when favorited)
  */
 @Composable
 fun FloatingMiniPlayer(
@@ -67,7 +71,8 @@ fun FloatingMiniPlayer(
     onTogglePlayPause: () -> Unit,
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    progress: Float = 0f
 ) {
     val capsuleGradient = remember {
         Brush.horizontalGradient(
@@ -81,9 +86,15 @@ fun FloatingMiniPlayer(
     }
 
     val heartTint by animateColorAsState(
-        targetValue = if (isFavorite) AccentOrange else Color.White,
+        targetValue = if (isFavorite) Color(0xFFEF4444) else Color.White,
         animationSpec = tween(250),
         label = "heartTint"
+    )
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = progress.coerceIn(0f, 1f),
+        animationSpec = tween(150),
+        label = "miniPlayerProgress"
     )
 
     Box(
@@ -114,17 +125,12 @@ fun FloatingMiniPlayer(
                 .height(52.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: Layered Play/Pause button strictly matching the mockup
-            // (Orange outer badge + solid white circular button + crisp black icon)
+            // Left: Play/Pause button surrounded by an orange circular progress ring
+            // filling up according to current playback position (0% -> 100%)
             Box(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(Color(0xFFFF7043), Color(0xFFFF5722), Color(0xFFE64A19))
-                        )
-                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = ripple(bounded = true, radius = 24.dp),
@@ -133,10 +139,37 @@ fun FloatingMiniPlayer(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                // White inner circle
+                // Circular Progress Ring
+                Canvas(modifier = Modifier.size(46.dp)) {
+                    val strokeWidthPx = 3.dp.toPx()
+                    val arcRadius = (size.minDimension - strokeWidthPx) / 2f
+
+                    // Subtle background track
+                    drawCircle(
+                        color = Color(0x33FF5722),
+                        radius = arcRadius,
+                        style = Stroke(width = strokeWidthPx)
+                    )
+
+                    // Filling orange progress arc
+                    if (animatedProgress > 0f) {
+                        drawArc(
+                            color = Color(0xFFFF5722),
+                            startAngle = -90f,
+                            sweepAngle = 360f * animatedProgress,
+                            useCenter = false,
+                            style = Stroke(
+                                width = strokeWidthPx,
+                                cap = StrokeCap.Round
+                            )
+                        )
+                    }
+                }
+
+                // Solid white circular inner button with crisp black icon
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(Color.White),
                     contentAlignment = Alignment.Center
@@ -146,7 +179,7 @@ fun FloatingMiniPlayer(
                         contentDescription = if (isPlaying) "Пауза" else "Воспроизведение",
                         tint = Color.Black,
                         modifier = Modifier
-                            .size(22.dp)
+                            .size(20.dp)
                             .then(if (!isPlaying) Modifier.padding(start = 2.dp) else Modifier)
                     )
                 }
@@ -207,7 +240,8 @@ fun FloatingMiniPlayer(
     onTogglePlayPause: () -> Unit,
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    progress: Float = 0f
 ) {
     FloatingMiniPlayer(
         trackTitle = track.title,
@@ -217,7 +251,8 @@ fun FloatingMiniPlayer(
         onTogglePlayPause = onTogglePlayPause,
         onToggleFavorite = onToggleFavorite,
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
+        progress = progress
     )
 }
 
@@ -239,6 +274,7 @@ fun FloatingMiniPlayer(
         track = track,
         isPlaying = playerState.isPlaying,
         isFavorite = isFavorite,
+        progress = playerState.progress,
         onTogglePlayPause = onTogglePlayPause,
         onToggleFavorite = onToggleFavorite,
         onClick = onClick,
