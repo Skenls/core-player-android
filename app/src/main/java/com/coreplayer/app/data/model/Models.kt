@@ -56,6 +56,29 @@ data class PlaylistDto(
     @Json(name = "created") val created: String? = null
 )
 
+data class AlbumDetailResponse(
+    @Json(name = "album") val album: AlbumWithSongsDto
+)
+
+data class AlbumWithSongsDto(
+    @Json(name = "id") val id: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "artist") val artist: String? = null,
+    @Json(name = "coverArt") val coverArt: String? = null,
+    @Json(name = "song") val song: List<TrackDto> = emptyList()
+)
+
+data class PlaylistDetailResponse(
+    @Json(name = "playlist") val playlist: PlaylistWithSongsDto
+)
+
+data class PlaylistWithSongsDto(
+    @Json(name = "id") val id: String,
+    @Json(name = "name") val name: String,
+    @Json(name = "songCount") val songCount: Int = 0,
+    @Json(name = "entry") val entry: List<TrackDto> = emptyList()
+)
+
 data class FavoritesIdsResponse(
     @Json(name = "track_ids") val trackIdsList: List<String>? = null,
     @Json(name = "tracks") val tracksList: List<String>? = null,

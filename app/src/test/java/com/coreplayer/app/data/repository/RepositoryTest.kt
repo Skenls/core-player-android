@@ -162,6 +162,28 @@ class RepositoryTest {
             )
         }
 
+        override suspend fun getAlbum(albumId: String): com.coreplayer.app.data.model.AlbumDetailResponse {
+            val song = TrackDto(id = "trk-album-1", title = "Airbag", artist = "Radiohead", albumId = albumId)
+            return com.coreplayer.app.data.model.AlbumDetailResponse(
+                album = com.coreplayer.app.data.model.AlbumWithSongsDto(
+                    id = albumId,
+                    name = "OK Computer",
+                    song = listOf(song)
+                )
+            )
+        }
+
+        override suspend fun getPlaylist(playlistId: String): com.coreplayer.app.data.model.PlaylistDetailResponse {
+            val song = TrackDto(id = "trk-pl-1", title = "Karma Police", artist = "Radiohead")
+            return com.coreplayer.app.data.model.PlaylistDetailResponse(
+                playlist = com.coreplayer.app.data.model.PlaylistWithSongsDto(
+                    id = playlistId,
+                    name = "Chill Vibes",
+                    entry = listOf(song)
+                )
+            )
+        }
+
         override suspend fun getLyrics(
             trackId: String,
             artist: String?,
@@ -175,5 +197,19 @@ class RepositoryTest {
                 synced = true
             )
         }
+    }
+
+    @Test
+    fun libraryRepository_getAlbumTracks_returnsTracks() = runTest {
+        val tracks = libraryRepository.getAlbumTracks("alb-1")
+        assertEquals(1, tracks.size)
+        assertEquals("Airbag", tracks.first().title)
+    }
+
+    @Test
+    fun libraryRepository_getPlaylistTracks_returnsTracks() = runTest {
+        val tracks = libraryRepository.getPlaylistTracks("pl-1")
+        assertEquals(1, tracks.size)
+        assertEquals("Karma Police", tracks.first().title)
     }
 }

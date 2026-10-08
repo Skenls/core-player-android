@@ -1,5 +1,6 @@
 package com.coreplayer.app.data.api
 
+import com.coreplayer.app.data.model.AlbumDetailResponse
 import com.coreplayer.app.data.model.AlbumDto
 import com.coreplayer.app.data.model.ArtistDto
 import com.coreplayer.app.data.model.FavoriteToggleRequest
@@ -7,6 +8,7 @@ import com.coreplayer.app.data.model.FavoriteToggleResponse
 import com.coreplayer.app.data.model.FavoritesIdsResponse
 import com.coreplayer.app.data.model.LoginRequest
 import com.coreplayer.app.data.model.LyricsResponse
+import com.coreplayer.app.data.model.PlaylistDetailResponse
 import com.coreplayer.app.data.model.PlaylistDto
 import com.coreplayer.app.data.model.SearchResponse
 import com.coreplayer.app.data.model.TrackDto
@@ -51,8 +53,18 @@ interface CorePlayerApi {
         @Query("size") size: Int? = null
     ): List<AlbumDto>
 
+    @GET("api/library/albums/{album_id}")
+    suspend fun getAlbum(
+        @Path("album_id") albumId: String
+    ): AlbumDetailResponse
+
     @GET("api/library/playlists")
     suspend fun getPlaylists(): List<PlaylistDto>
+
+    @GET("api/library/playlists/{playlist_id}")
+    suspend fun getPlaylist(
+        @Path("playlist_id") playlistId: String
+    ): PlaylistDetailResponse
 
     @GET("api/library/favorites/ids")
     suspend fun getFavoriteIds(): FavoritesIdsResponse
@@ -67,7 +79,7 @@ interface CorePlayerApi {
 
     @GET("api/library/search")
     suspend fun search(
-        @Query("q") query: String
+        @Query("query") query: String
     ): SearchResponse
 
     @GET("api/lyrics/{track_id}")

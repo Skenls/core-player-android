@@ -19,7 +19,25 @@ class LibraryRepository(
     suspend fun getAlbums(type: String? = null, size: Int? = null): List<AlbumDto> =
         api.getAlbums(type = type, size = size)
 
+    suspend fun getAlbumTracks(albumId: String): List<TrackDto> {
+        return try {
+            api.getAlbum(albumId).album.song
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch tracks for album $albumId", e)
+            emptyList()
+        }
+    }
+
     suspend fun getPlaylists(): List<PlaylistDto> = api.getPlaylists()
+
+    suspend fun getPlaylistTracks(playlistId: String): List<TrackDto> {
+        return try {
+            api.getPlaylist(playlistId).playlist.entry
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch tracks for playlist $playlistId", e)
+            emptyList()
+        }
+    }
 
     suspend fun getFavoriteIds(): FavoritesIdsResponse = api.getFavoriteIds()
 
@@ -29,21 +47,23 @@ class LibraryRepository(
     suspend fun getFavoriteTracks(): List<TrackDto> = api.getFavoriteTracks()
 
     suspend fun search(query: String): List<TrackDto> {
-        if (query.isBlank()) return emptyList()
+        val trimmed = query.trim()
+        if (trimmed.length < 2) return emptyList()
         return try {
-            api.search(query).tracks
+            api.search(trimmed).tracks
         } catch (e: Exception) {
-            Log.e(TAG, "Search failed for query: $query", e)
+            Log.e(TAG, "Search failed for query: $trimmed", e)
             emptyList()
         }
     }
 
     suspend fun searchFull(query: String): SearchResponse {
-        if (query.isBlank()) return SearchResponse()
+        val trimmed = query.trim()
+        if (trimmed.length < 2) return SearchResponse()
         return try {
-            api.search(query)
+            api.search(trimmed)
         } catch (e: Exception) {
-            Log.e(TAG, "Search full failed for query: $query", e)
+            Log.e(TAG, "Search full failed for query: $trimmed", e)
             SearchResponse()
         }
     }
