@@ -99,6 +99,8 @@ fun HomeScreen(
             onCodecSelected = { CorePlayerApp.instance.updateCodec(it) },
             selectedBgMode = CorePlayerApp.instance.playerBackgroundMode,
             onBgModeSelected = { CorePlayerApp.instance.playerBackgroundMode = it },
+            isAdaptiveBubbleEnabled = CorePlayerApp.instance.adaptiveBubbleColor,
+            onAdaptiveBubbleChanged = { CorePlayerApp.instance.adaptiveBubbleColor = it },
             onLogout = {
                 showSettingsDialog = false
                 scope.launch {

@@ -24,7 +24,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -96,7 +95,6 @@ fun LibraryScreen(
     var selectedPlaylistForDetail by remember { mutableStateOf<PlaylistDto?>(null) }
     var playlistDetailTracks by remember { mutableStateOf<List<TrackDto>>(emptyList()) }
     var isPlaylistDetailLoading by remember { mutableStateOf(false) }
-    var trackForAddToPlaylist by remember { mutableStateOf<TrackDto?>(null) }
 
     val scope = rememberCoroutineScope()
 
@@ -176,38 +174,6 @@ fun LibraryScreen(
                         android.util.Log.e("LibraryScreen", "Failed to create playlist", e)
                     }
                 }
-            }
-        )
-    }
-
-    // Add To Playlist Dialog
-    trackForAddToPlaylist?.let { track ->
-        AddToPlaylistDialog(
-            track = track,
-            playlists = playlists,
-            onDismiss = { trackForAddToPlaylist = null },
-            onSelectPlaylist = { pl ->
-                scope.launch {
-                    try {
-                        libraryRepository.addTrackToPlaylist(pl.id, track.id)
-                        refreshPlaylists()
-                    } catch (e: Exception) {
-                        android.util.Log.e("LibraryScreen", "Failed to add track to playlist", e)
-                    }
-                }
-                trackForAddToPlaylist = null
-            },
-            onCreatePlaylist = { name ->
-                scope.launch {
-                    try {
-                        val newPl = libraryRepository.createPlaylist(name)
-                        libraryRepository.addTrackToPlaylist(newPl.id, track.id)
-                        refreshPlaylists()
-                    } catch (e: Exception) {
-                        android.util.Log.e("LibraryScreen", "Failed to create and add to playlist", e)
-                    }
-                }
-                trackForAddToPlaylist = null
             }
         )
     }
@@ -294,9 +260,6 @@ fun LibraryScreen(
         onTrackClick = { track ->
             playerController.playTrack(track, favorites)
         },
-        onAddToPlaylist = { track ->
-            trackForAddToPlaylist = track
-        },
         onCreatePlaylistClick = {
             showCreatePlaylistDialog = true
         },
@@ -317,7 +280,6 @@ fun LibraryScreenContent(
     isLoading: Boolean,
     baseUrl: String,
     onTrackClick: (TrackDto) -> Unit,
-    onAddToPlaylist: (TrackDto) -> Unit = {},
     onCreatePlaylistClick: () -> Unit = {},
     onPlaylistClick: (PlaylistDto) -> Unit,
     modifier: Modifier = Modifier
@@ -437,8 +399,7 @@ fun LibraryScreenContent(
                                     LibraryTrackItem(
                                         track = track,
                                         baseUrl = baseUrl,
-                                        onClick = { onTrackClick(track) },
-                                        onAddToPlaylist = { onAddToPlaylist(track) }
+                                        onClick = { onTrackClick(track) }
                                     )
                                 }
                             }
@@ -463,20 +424,23 @@ fun LibraryScreenContent(
 
                                 Button(
                                     onClick = onCreatePlaylistClick,
-                                    colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color.White,
+                                        contentColor = Color.Black
+                                    ),
                                     shape = RoundedCornerShape(12.dp),
                                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Add,
                                         contentDescription = null,
-                                        tint = Color.White,
+                                        tint = Color.Black,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = "Новый плейлист",
-                                        color = Color.White,
+                                        color = Color.Black,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
@@ -525,8 +489,7 @@ fun LibraryTrackItem(
     track: TrackDto,
     baseUrl: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    onAddToPlaylist: (() -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
@@ -591,20 +554,6 @@ fun LibraryTrackItem(
                 color = TextSecondary,
                 fontWeight = FontWeight.Medium
             )
-        }
-
-        if (onAddToPlaylist != null) {
-            IconButton(
-                onClick = onAddToPlaylist,
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.PlaylistAdd,
-                    contentDescription = "Добавить в плейлист",
-                    tint = TextSecondary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
         }
     }
 }

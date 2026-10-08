@@ -23,6 +23,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.coreplayer.app.CorePlayerApp
+import com.coreplayer.app.data.model.PlaylistDto
 import com.coreplayer.app.data.repository.AuthRepository
 import com.coreplayer.app.data.repository.LibraryRepository
 import com.coreplayer.app.data.repository.LyricsRepository
@@ -31,6 +32,7 @@ import com.coreplayer.app.ui.components.BottomNavBar
 import com.coreplayer.app.ui.components.FloatingMiniPlayer
 import com.coreplayer.app.ui.screens.browse.BrowseScreen
 import com.coreplayer.app.ui.screens.home.HomeScreen
+import com.coreplayer.app.ui.screens.library.AddToPlaylistDialog
 import com.coreplayer.app.ui.screens.library.LibraryScreen
 import com.coreplayer.app.ui.screens.login.LoginScreen
 import com.coreplayer.app.ui.screens.nowplaying.NowPlayingBottomSheet
@@ -59,10 +61,23 @@ fun AppNavigation(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: startDestination
     val playerState by playerController.state.collectAsStateWithLifecycle()
+    val isAdaptiveBubbleEnabled by CorePlayerApp.instance.adaptiveBubbleFlow.collectAsStateWithLifecycle()
 
     var showNowPlayingSheet by remember { mutableStateOf(false) }
+    var showAddToPlaylistDialog by remember { mutableStateOf(false) }
+    var playlistsForAdd by remember { mutableStateOf<List<PlaylistDto>>(emptyList()) }
     var isCurrentTrackFavorite by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(showAddToPlaylistDialog) {
+        if (showAddToPlaylistDialog) {
+            try {
+                playlistsForAdd = libraryRepository.getPlaylists()
+            } catch (e: Exception) {
+                android.util.Log.e("AppNavigation", "Failed to load playlists", e)
+            }
+        }
+    }
 
     // Observe and sync favorite state for current playing track
     LaunchedEffect(playerState.currentTrack?.id) {
@@ -129,7 +144,8 @@ fun AppNavigation(
                             onTogglePlayPause = { playerController.togglePlayPause() },
                             onToggleFavorite = toggleFavorite,
                             onClick = { showNowPlayingSheet = true },
-                            baseUrl = playerController.baseUrl
+                            baseUrl = playerController.baseUrl,
+                            isAdaptiveColorEnabled = isAdaptiveBubbleEnabled
                         )
                     }
 
@@ -245,7 +261,40 @@ fun AppNavigation(
                 lyricsRepository = lyricsRepository,
                 isFavorite = isCurrentTrackFavorite,
                 onToggleFavorite = toggleFavorite,
+                onAddToPlaylist = { showAddToPlaylistDialog = true },
                 onDismiss = { showNowPlayingSheet = false }
+            )
+        }
+
+        if (showAddToPlaylistDialog && playerState.currentTrack != null) {
+            val currentTrack = playerState.currentTrack!!
+            AddToPlaylistDialog(
+                track = currentTrack,
+                playlists = playlistsForAdd,
+                onDismiss = { showAddToPlaylistDialog = false },
+                onSelectPlaylist = { pl ->
+                    scope.launch {
+                        try {
+                            libraryRepository.addTrackToPlaylist(pl.id, currentTrack.id)
+                            playlistsForAdd = libraryRepository.getPlaylists()
+                        } catch (e: Exception) {
+                            android.util.Log.e("AppNavigation", "Failed to add track to playlist", e)
+                        }
+                    }
+                    showAddToPlaylistDialog = false
+                },
+                onCreatePlaylist = { name ->
+                    scope.launch {
+                        try {
+                            val newPl = libraryRepository.createPlaylist(name)
+                            libraryRepository.addTrackToPlaylist(newPl.id, currentTrack.id)
+                            playlistsForAdd = libraryRepository.getPlaylists()
+                        } catch (e: Exception) {
+                            android.util.Log.e("AppNavigation", "Failed to create and add to playlist", e)
+                        }
+                    }
+                    showAddToPlaylistDialog = false
+                }
             )
         }
     }

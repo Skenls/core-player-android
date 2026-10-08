@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
@@ -118,6 +119,7 @@ fun NowPlayingBottomSheet(
     lyrics: List<LyricLine> = emptyList(),
     isLyricsLoading: Boolean = false,
     lyricsError: String? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     baseUrl: String = ""
@@ -143,6 +145,7 @@ fun NowPlayingBottomSheet(
             lyrics = lyrics,
             isLyricsLoading = isLyricsLoading,
             lyricsError = lyricsError,
+            onAddToPlaylist = onAddToPlaylist,
             onDismiss = onDismiss,
             baseUrl = baseUrl
         )
@@ -158,6 +161,7 @@ fun NowPlayingBottomSheet(
     lyricsRepository: LyricsRepository? = null,
     isFavorite: Boolean = false,
     onToggleFavorite: () -> Unit = {},
+    onAddToPlaylist: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -206,6 +210,7 @@ fun NowPlayingBottomSheet(
         lyrics = lyrics,
         isLyricsLoading = isLyricsLoading,
         lyricsError = lyricsError,
+        onAddToPlaylist = onAddToPlaylist,
         onDismiss = onDismiss,
         baseUrl = playerController.baseUrl,
         modifier = modifier
@@ -230,6 +235,7 @@ fun NowPlayingContent(
     lyrics: List<LyricLine> = emptyList(),
     isLyricsLoading: Boolean = false,
     lyricsError: String? = null,
+    onAddToPlaylist: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     baseUrl: String = ""
@@ -315,13 +321,26 @@ fun NowPlayingContent(
                     )
                 }
 
-                IconButton(onClick = { showLyrics = !showLyrics }) {
-                    Icon(
-                        imageVector = if (showLyrics) Icons.Filled.Lyrics else Icons.Outlined.Lyrics,
-                        contentDescription = "Toggle lyrics view",
-                        tint = if (showLyrics) Color.White else TextSecondary,
-                        modifier = Modifier.size(26.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onAddToPlaylist != null) {
+                        IconButton(onClick = onAddToPlaylist) {
+                            Icon(
+                                imageVector = Icons.Filled.PlaylistAdd,
+                                contentDescription = "Добавить в плейлист",
+                                tint = Color.White,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = { showLyrics = !showLyrics }) {
+                        Icon(
+                            imageVector = if (showLyrics) Icons.Filled.Lyrics else Icons.Outlined.Lyrics,
+                            contentDescription = "Toggle lyrics view",
+                            tint = if (showLyrics) Color.White else TextSecondary,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
                 }
             }
 

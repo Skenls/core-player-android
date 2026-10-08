@@ -8,13 +8,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Close
@@ -25,6 +28,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -79,11 +84,14 @@ fun SettingsDialog(
     onCodecSelected: (String) -> Unit,
     selectedBgMode: String = "cover",
     onBgModeSelected: (String) -> Unit = {},
+    isAdaptiveBubbleEnabled: Boolean = true,
+    onAdaptiveBubbleChanged: (Boolean) -> Unit = {},
     onLogout: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var currentCodec by remember { mutableStateOf(selectedCodec) }
     var currentBgMode by remember { mutableStateOf(selectedBgMode) }
+    var currentAdaptiveBubble by remember { mutableStateOf(isAdaptiveBubbleEnabled) }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -92,13 +100,14 @@ fun SettingsDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.85f)
                 .clip(RoundedCornerShape(24.dp))
                 .background(DarkSurface)
                 .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(24.dp))
-                .padding(24.dp)
+                .padding(20.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Header with title and close icon
+                // Header with title and close icon (fixed at top)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -119,7 +128,15 @@ fun SettingsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Scrollable settings list
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                ) {
 
                 // Account Information Card
                 Text(
@@ -294,6 +311,57 @@ fun SettingsDialog(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Mini-player Appearance (Adaptive Bubble Color)
+                Text(
+                    text = "МИНИ-ПЛЕЕР",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextSecondary,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(DarkSurfaceVariant)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text(
+                            text = "Цвет под обложку",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Адаптивный градиент пузыря из обложки трека",
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+
+                    Switch(
+                        checked = currentAdaptiveBubble,
+                        onCheckedChange = { checked ->
+                            currentAdaptiveBubble = checked
+                            onAdaptiveBubbleChanged(checked)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.Black,
+                            checkedTrackColor = Color.White,
+                            uncheckedThumbColor = Color(0xFF8E95A5),
+                            uncheckedTrackColor = Color(0x33FFFFFF)
+                        )
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Logout Button
@@ -321,6 +389,9 @@ fun SettingsDialog(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }

@@ -86,10 +86,15 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
             prefs.edit().putString("player_bg_mode", value).apply()
         }
 
+    val adaptiveBubbleFlow by lazy {
+        kotlinx.coroutines.flow.MutableStateFlow(adaptiveBubbleColor)
+    }
+
     var adaptiveBubbleColor: Boolean
         get() = prefs.getBoolean("adaptive_bubble_color", true)
         set(value) {
             prefs.edit().putBoolean("adaptive_bubble_color", value).apply()
+            adaptiveBubbleFlow.value = value
         }
 
     fun updateCodec(newCodec: String) {

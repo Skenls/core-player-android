@@ -78,20 +78,32 @@ fun FloatingMiniPlayer(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     progress: Float = 0f,
-    coverArtUrl: String? = null
+    coverArtUrl: String? = null,
+    isAdaptiveColorEnabled: Boolean = true
 ) {
-    val palette by com.coreplayer.app.ui.util.rememberAdaptivePalette(coverArtUrl)
+    val palette by com.coreplayer.app.ui.util.rememberAdaptivePalette(if (isAdaptiveColorEnabled) coverArtUrl else null)
     val startColor by animateColorAsState(targetValue = palette.primary, animationSpec = tween(500), label = "palStart")
     val endColor by animateColorAsState(targetValue = palette.secondary, animationSpec = tween(500), label = "palEnd")
 
-    val capsuleGradient = remember(startColor, endColor) {
-        Brush.horizontalGradient(
-            colors = listOf(
-                Color(0xFF10141D),
-                startColor,
-                endColor
+    val capsuleGradient = remember(startColor, endColor, isAdaptiveColorEnabled) {
+        if (isAdaptiveColorEnabled) {
+            Brush.horizontalGradient(
+                colors = listOf(
+                    Color(0xFF10141D),
+                    startColor,
+                    endColor
+                )
             )
-        )
+        } else {
+            Brush.horizontalGradient(
+                colors = listOf(
+                    Color(0xFF161C26),
+                    Color(0xFF162334),
+                    Color(0xFF152A3F),
+                    Color(0xFF12344E)
+                )
+            )
+        }
     }
 
     val heartTint by animateColorAsState(
@@ -266,7 +278,8 @@ fun FloatingMiniPlayer(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     progress: Float = 0f,
-    baseUrl: String = ""
+    baseUrl: String = "",
+    isAdaptiveColorEnabled: Boolean = true
 ) {
     val coverUrl = com.coreplayer.app.ui.util.resolveCoverUrl(track.coverArt, baseUrl)
     FloatingMiniPlayer(
@@ -279,7 +292,8 @@ fun FloatingMiniPlayer(
         onClick = onClick,
         modifier = modifier,
         progress = progress,
-        coverArtUrl = coverUrl
+        coverArtUrl = coverUrl,
+        isAdaptiveColorEnabled = isAdaptiveColorEnabled
     )
 }
 
@@ -295,7 +309,8 @@ fun FloatingMiniPlayer(
     onToggleFavorite: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    baseUrl: String = ""
+    baseUrl: String = "",
+    isAdaptiveColorEnabled: Boolean = true
 ) {
     val track = playerState.currentTrack ?: return
     FloatingMiniPlayer(
@@ -307,7 +322,8 @@ fun FloatingMiniPlayer(
         onToggleFavorite = onToggleFavorite,
         onClick = onClick,
         modifier = modifier,
-        baseUrl = baseUrl
+        baseUrl = baseUrl,
+        isAdaptiveColorEnabled = isAdaptiveColorEnabled
     )
 }
 

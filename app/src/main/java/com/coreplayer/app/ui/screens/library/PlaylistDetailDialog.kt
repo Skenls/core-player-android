@@ -113,10 +113,19 @@ fun CreatePlaylistDialog(
                         onConfirm(name.trim())
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White,
+                    contentColor = Color.Black,
+                    disabledContainerColor = Color(0x33FFFFFF),
+                    disabledContentColor = Color(0x66FFFFFF)
+                ),
                 enabled = name.isNotBlank()
             ) {
-                Text("Создать", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Создать",
+                    color = if (name.isNotBlank()) Color.Black else Color(0x66FFFFFF),
+                    fontWeight = FontWeight.Bold
+                )
             }
         },
         dismissButton = {
@@ -200,7 +209,7 @@ fun AddToPlaylistDialog(
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(imageVector = Icons.Filled.Add, contentDescription = null, tint = AccentOrange)
+                    Icon(imageVector = Icons.Filled.Add, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(text = "Создать новый плейлист", color = TextPrimary, fontWeight = FontWeight.SemiBold)
                 }
@@ -360,13 +369,16 @@ fun PlaylistDetailSheet(
 
                         Button(
                             onClick = onPlayAll,
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentOrange),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color.Black
+                            ),
                             shape = CircleShape,
                             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
                         ) {
-                            Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White)
+                            Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null, tint = Color.Black)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Слушать", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Слушать", color = Color.Black, fontWeight = FontWeight.Bold)
                         }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
