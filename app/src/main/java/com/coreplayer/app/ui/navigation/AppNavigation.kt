@@ -87,7 +87,6 @@ fun AppNavigation(
                     isCurrentTrackFavorite = res.is_favorite
                 } catch (e: Exception) {
                     android.util.Log.e("AppNavigation", "Failed to toggle favorite for track $currentId", e)
-                    isCurrentTrackFavorite = !isCurrentTrackFavorite
                 }
             }
         }

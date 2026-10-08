@@ -39,8 +39,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.Color
 import com.coreplayer.app.data.model.LyricLine
-import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
@@ -86,7 +86,7 @@ fun SyncedLyricsView(
                 verticalArrangement = Arrangement.Center
             ) {
                 CircularProgressIndicator(
-                    color = AccentOrange,
+                    color = Color.White,
                     strokeWidth = 3.dp,
                     modifier = Modifier.size(36.dp)
                 )

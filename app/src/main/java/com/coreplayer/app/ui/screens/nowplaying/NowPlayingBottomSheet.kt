@@ -68,6 +68,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
 import com.coreplayer.app.data.model.LyricLine
 import com.coreplayer.app.data.model.TrackDto
 import com.coreplayer.app.data.repository.LyricsRepository
@@ -75,7 +81,6 @@ import com.coreplayer.app.player.PlayerControllerManager
 import com.coreplayer.app.player.PlayerState
 import com.coreplayer.app.player.RepeatMode
 import com.coreplayer.app.player.formatTime
-import com.coreplayer.app.ui.theme.AccentOrange
 import com.coreplayer.app.ui.theme.CorePlayerTheme
 import com.coreplayer.app.ui.theme.DarkBackground
 import com.coreplayer.app.ui.theme.DarkSurfaceVariant
@@ -313,7 +318,7 @@ fun NowPlayingContent(
                     Icon(
                         imageVector = if (showLyrics) Icons.Filled.Lyrics else Icons.Outlined.Lyrics,
                         contentDescription = "Toggle lyrics view",
-                        tint = if (showLyrics) AccentOrange else TextSecondary,
+                        tint = if (showLyrics) Color.White else TextSecondary,
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -417,39 +422,96 @@ fun NowPlayingContent(
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
                             contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                            tint = if (isFavorite) AccentOrange else TextSecondary,
+                            tint = if (isFavorite) Color(0xFFEF4444) else TextSecondary,
                             modifier = Modifier.size(28.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Seek Bar Slider
-                val sliderValue = if (isSeeking) {
-                    seekPositionMs
-                } else {
-                    playerState.currentPositionMs.toFloat().coerceIn(0f, maxOf(1f, durationMs.toFloat()))
+                // Sleek Custom Scrubber with Neat Dot Thumb
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(30.dp)
+                        .pointerInput(durationMs) {
+                            detectTapGestures { offset ->
+                                if (durationMs > 0) {
+                                    val fraction = (offset.x / size.width).coerceIn(0f, 1f)
+                                    val targetMs = (fraction * durationMs).toLong()
+                                    seekPositionMs = targetMs.toFloat()
+                                    onSeekTo(targetMs)
+                                }
+                            }
+                        }
+                        .pointerInput(durationMs) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { offset ->
+                                    isSeeking = true
+                                    if (durationMs > 0) {
+                                        val fraction = (offset.x / size.width).coerceIn(0f, 1f)
+                                        seekPositionMs = fraction * durationMs
+                                    }
+                                },
+                                onDragEnd = {
+                                    onSeekTo(seekPositionMs.toLong())
+                                    isSeeking = false
+                                },
+                                onDragCancel = {
+                                    isSeeking = false
+                                },
+                                onHorizontalDrag = { _, dragAmount ->
+                                    if (durationMs > 0) {
+                                        val deltaFraction = dragAmount / size.width
+                                        val currentFraction = (seekPositionMs / durationMs).coerceIn(0f, 1f)
+                                        val newFraction = (currentFraction + deltaFraction).coerceIn(0f, 1f)
+                                        seekPositionMs = newFraction * durationMs
+                                    }
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    val widthPx = constraints.maxWidth.toFloat()
+                    val fraction = if (durationMs > 0) {
+                        (displayedPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                    } else 0f
+
+                    // Inactive Background Track
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .align(Alignment.Center)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(Color(0x28FFFFFF))
+                    )
+
+                    // Active Progress Track
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction)
+                            .height(3.dp)
+                            .align(Alignment.CenterStart)
+                            .clip(RoundedCornerShape(1.5.dp))
+                            .background(Color.White)
+                    )
+
+                    // Neat Small White Dot Thumb
+                    val thumbRadiusPx = with(androidx.compose.ui.platform.LocalDensity.current) { 5.dp.toPx() }
+                    val thumbOffsetPx = (widthPx * fraction - thumbRadiusPx).coerceIn(0f, widthPx - thumbRadiusPx * 2)
+
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(thumbOffsetPx.toInt(), 0) }
+                            .align(Alignment.CenterStart)
+                            .size(10.dp)
+                            .shadow(3.dp, CircleShape)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                    )
                 }
-
-                Slider(
-                    value = sliderValue,
-                    onValueChange = {
-                        isSeeking = true
-                        seekPositionMs = it
-                    },
-                    onValueChangeFinished = {
-                        onSeekTo(seekPositionMs.toLong())
-                        isSeeking = false
-                    },
-                    valueRange = 0f..maxOf(1f, durationMs.toFloat()),
-                    colors = SliderDefaults.colors(
-                        thumbColor = Color.White,
-                        activeTrackColor = AccentOrange,
-                        inactiveTrackColor = SubtleDivider
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
 
                 // Timestamp labels
                 Row(
@@ -470,7 +532,7 @@ fun NowPlayingContent(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Playback Controls: Shuffle, Previous, Play/Pause, Next, Repeat
                 Row(
@@ -483,7 +545,7 @@ fun NowPlayingContent(
                         Icon(
                             imageVector = Icons.Filled.Shuffle,
                             contentDescription = "Shuffle",
-                            tint = if (playerState.shuffleModeEnabled) AccentOrange else TextSecondary,
+                            tint = if (playerState.shuffleModeEnabled) Color.White else TextSecondary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -501,12 +563,12 @@ fun NowPlayingContent(
                         )
                     }
 
-                    // Large Play/Pause Circular Button
+                    // Large Play/Pause Circular Button (Clean White Circle with Black Icon)
                     Box(
                         modifier = Modifier
                             .size(72.dp)
                             .clip(CircleShape)
-                            .background(AccentOrange)
+                            .background(Color.White)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = ripple(bounded = true, radius = 36.dp),
@@ -517,7 +579,7 @@ fun NowPlayingContent(
                     ) {
                         if (playerState.isBuffering) {
                             CircularProgressIndicator(
-                                color = Color.White,
+                                color = Color.Black,
                                 strokeWidth = 3.dp,
                                 modifier = Modifier.size(32.dp)
                             )
@@ -525,7 +587,7 @@ fun NowPlayingContent(
                             Icon(
                                 imageVector = if (playerState.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                                 contentDescription = if (playerState.isPlaying) "Pause" else "Play",
-                                tint = Color.White,
+                                tint = Color.Black,
                                 modifier = Modifier.size(38.dp)
                             )
                         }
@@ -548,8 +610,8 @@ fun NowPlayingContent(
                     IconButton(onClick = onToggleRepeat) {
                         val (repeatIcon, repeatTint) = when (playerState.repeatMode) {
                             RepeatMode.OFF -> Icons.Filled.Repeat to TextSecondary
-                            RepeatMode.ALL -> Icons.Filled.Repeat to AccentOrange
-                            RepeatMode.ONE -> Icons.Filled.RepeatOne to AccentOrange
+                            RepeatMode.ALL -> Icons.Filled.Repeat to Color.White
+                            RepeatMode.ONE -> Icons.Filled.RepeatOne to Color.White
                         }
                         Icon(
                             imageVector = repeatIcon,
