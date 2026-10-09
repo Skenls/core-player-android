@@ -28,11 +28,13 @@ class AuthRepository(
     }
 
     suspend fun logout() {
+        clearSession()
         try {
-            api.logout()
-        } finally {
-            _currentUser.value = null
-            cookieJar?.clear()
+            kotlinx.coroutines.withTimeoutOrNull(500L) {
+                api.logout()
+            }
+        } catch (_: Exception) {
+            // Ignore network errors when logging out
         }
     }
 

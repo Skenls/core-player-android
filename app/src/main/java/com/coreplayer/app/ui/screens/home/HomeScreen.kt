@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -107,9 +110,12 @@ fun HomeScreen(
             onCrossfadeChanged = { CorePlayerApp.instance.crossfadeEnabled = it },
             onLogout = {
                 showSettingsDialog = false
+                authRepository.clearSession()
+                onLogout()
                 scope.launch {
-                    authRepository.logout()
-                    onLogout()
+                    try {
+                        authRepository.logout()
+                    } catch (_: Exception) {}
                 }
             },
             onDismiss = { showSettingsDialog = false }
@@ -153,35 +159,152 @@ fun HomeScreenContent(
             .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
     ) {
         if (uiState.isLoading && uiState.artists.isEmpty() && uiState.playlists.isEmpty()) {
-            CircularProgressIndicator(
-                color = Color.White,
-                modifier = Modifier.align(Alignment.Center)
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+            ) {
+                // Header with settings button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "core",
+                        style = CoreLogoStyle
+                    )
+                    IconButton(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(DarkSurfaceVariant, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Настройки",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(42.dp),
+                            strokeWidth = 3.dp
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Text(
+                            text = "Подключение к серверу...",
+                            color = TextSecondary,
+                            style = SectionTitleStyle
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onNavigateToSettings,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFFFFF)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Настройки", color = Color.White)
+                        }
+                    }
+                }
+            }
         } else if (uiState.error != null && uiState.artists.isEmpty() && uiState.playlists.isEmpty()) {
             Column(
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxSize()
+                    .statusBarsPadding()
             ) {
-                Text(
-                    text = uiState.error,
-                    color = TextSecondary,
-                    style = SectionTitleStyle,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                Button(
-                    onClick = onRetry,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
+                // Header with settings button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "Повторить", color = Color.Black)
+                    Text(
+                        text = "core",
+                        style = CoreLogoStyle
+                    )
+                    IconButton(
+                        onClick = onNavigateToSettings,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(DarkSurfaceVariant, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Настройки",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
-                androidx.compose.material3.OutlinedButton(
-                    onClick = onNavigateToSettings,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextSecondary)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "Настройки сервера", color = TextSecondary)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(32.dp)
+                    ) {
+                        Text(
+                            text = uiState.error,
+                            color = TextSecondary,
+                            style = SectionTitleStyle,
+                            modifier = Modifier.padding(bottom = 16.dp),
+                            textAlign = TextAlign.Center
+                        )
+                        Button(
+                            onClick = onRetry,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(text = "Повторить", color = Color.Black)
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = onNavigateToSettings,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFFFFF)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Настройки сервера", color = Color.White)
+                        }
+                    }
                 }
             }
         } else {

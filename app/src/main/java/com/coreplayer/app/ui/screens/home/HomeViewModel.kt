@@ -110,9 +110,16 @@ class HomeViewModel(
         _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             try {
-                val artists = libraryRepository.getArtists()
-                val playlists = libraryRepository.getPlaylists()
-                val favorites = libraryRepository.getFavoriteTracks()
+                val data = kotlinx.coroutines.withTimeoutOrNull(300L) {
+                    val artists = libraryRepository.getArtists()
+                    val playlists = libraryRepository.getPlaylists()
+                    val favorites = libraryRepository.getFavoriteTracks()
+                    Triple(artists, playlists, favorites)
+                }
+                if (data == null) {
+                    throw java.net.SocketTimeoutException("Таймаут подключения (300 мс)")
+                }
+                val (artists, playlists, favorites) = data
                 val persistedRecent = recentManager?.loadRecent()?.take(RecentTracksManager.MAX_RECENT)
                 val recent = if (!persistedRecent.isNullOrEmpty()) {
                     persistedRecent
@@ -147,10 +154,15 @@ class HomeViewModel(
                     _uiState.update { it.copy(playlistCovers = covers) }
                 }
             } catch (e: Exception) {
+                val errorMsg = if (e is java.net.SocketTimeoutException || e is kotlinx.coroutines.TimeoutCancellationException) {
+                    "Таймаут подключения к серверу (300 мс)"
+                } else {
+                    e.localizedMessage ?: "Ошибка подключения к серверу"
+                }
                 _uiState.update {
                     it.copy(
                         isLoading = false,
-                        error = e.localizedMessage ?: "Ошибка подключения к серверу"
+                        error = errorMsg
                     )
                 }
                 startAutoReconnect()

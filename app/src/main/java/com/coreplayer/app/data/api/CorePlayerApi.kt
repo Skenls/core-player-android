@@ -141,6 +141,9 @@ interface CorePlayerApi {
         ): CorePlayerApi {
             val client = okHttpClient ?: OkHttpClient.Builder()
                 .cookieJar(cookieJar)
+                .connectTimeout(300, java.util.concurrent.TimeUnit.MILLISECONDS)
+                .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
                 .build()
 
             val moshi = createMoshi()
