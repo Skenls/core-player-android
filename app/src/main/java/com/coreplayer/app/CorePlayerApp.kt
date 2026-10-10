@@ -29,7 +29,7 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
     val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .cookieJar(cookieJar)
-            .connectTimeout(300, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
             .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
@@ -54,8 +54,12 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
     var serverUrl: String
         get() = prefs.getString("server_url", "http://localhost:8000") ?: "http://localhost:8000"
         set(value) {
+            val oldUrl = prefs.getString("server_url", "") ?: ""
             prefs.edit().putString("server_url", value).apply()
             initRepositories(value)
+            if (oldUrl.isNotBlank() && oldUrl.trimEnd('/') != value.trimEnd('/')) {
+                recentTracksManager.clear()
+            }
         }
 
     var audioCodec: String

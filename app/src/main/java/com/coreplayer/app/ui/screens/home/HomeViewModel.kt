@@ -56,6 +56,16 @@ class HomeViewModel(
         observePlayerState()
         observeFavorites()
         observePlaylists()
+        observeRecentTracks()
+    }
+
+    private fun observeRecentTracks() {
+        val manager = recentManager ?: return
+        viewModelScope.launch {
+            manager.recentTracks.collect { tracks ->
+                _uiState.update { it.copy(recentTracks = tracks.take(RecentTracksManager.MAX_RECENT)) }
+            }
+        }
     }
 
     private fun observePlayerState() {
@@ -110,23 +120,14 @@ class HomeViewModel(
         _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             try {
-                val data = kotlinx.coroutines.withTimeoutOrNull(300L) {
-                    val artists = libraryRepository.getArtists()
-                    val playlists = libraryRepository.getPlaylists()
-                    val favorites = libraryRepository.getFavoriteTracks()
-                    Triple(artists, playlists, favorites)
-                }
-                if (data == null) {
-                    throw java.net.SocketTimeoutException("Таймаут подключения (300 мс)")
-                }
-                val (artists, playlists, favorites) = data
+                val artists = libraryRepository.getArtists()
+                val playlists = libraryRepository.getPlaylists()
+                val favorites = libraryRepository.getFavoriteTracks()
                 val persistedRecent = recentManager?.loadRecent()?.take(RecentTracksManager.MAX_RECENT)
                 val recent = if (!persistedRecent.isNullOrEmpty()) {
                     persistedRecent
-                } else if (_uiState.value.recentTracks.isNotEmpty()) {
-                    _uiState.value.recentTracks.take(RecentTracksManager.MAX_RECENT)
                 } else {
-                    favorites.take(RecentTracksManager.MAX_RECENT)
+                    _uiState.value.recentTracks.take(RecentTracksManager.MAX_RECENT)
                 }
                 _uiState.update {
                     it.copy(
@@ -154,11 +155,7 @@ class HomeViewModel(
                     _uiState.update { it.copy(playlistCovers = covers) }
                 }
             } catch (e: Exception) {
-                val errorMsg = if (e is java.net.SocketTimeoutException || e is kotlinx.coroutines.TimeoutCancellationException) {
-                    "Таймаут подключения к серверу (300 мс)"
-                } else {
-                    e.localizedMessage ?: "Ошибка подключения к серверу"
-                }
+                val errorMsg = e.localizedMessage ?: "Ошибка подключения к серверу"
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -182,11 +179,8 @@ class HomeViewModel(
                     val artists = libraryRepository.getArtists()
                     val playlists = libraryRepository.getPlaylists()
                     val favorites = libraryRepository.getFavoriteTracks()
-                    val recent = if (_uiState.value.recentTracks.isNotEmpty()) {
-                        _uiState.value.recentTracks
-                    } else {
-                        favorites.take(RecentTracksManager.MAX_RECENT)
-                    }
+                    val recent = recentManager?.loadRecent()?.take(RecentTracksManager.MAX_RECENT)
+                        ?: _uiState.value.recentTracks.take(RecentTracksManager.MAX_RECENT)
                     _uiState.update {
                         it.copy(
                             artists = artists,

@@ -16,3 +16,6 @@ local.properties
 # Android build outputs
 *.apk
 *.aab
+
+# Scratch directory
+scratch/

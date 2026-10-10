@@ -156,11 +156,15 @@ class HomeViewModelTest {
 
     @Test
     fun playRecentTrack_playsTrackWithQueue() = runTest(testDispatcher) {
+        val mockRecentManager = mockk<com.coreplayer.app.data.repository.RecentTracksManager>(relaxed = true)
+        every { mockRecentManager.loadRecent() } returns sampleFavorites.take(4)
+        every { mockRecentManager.recentTracks } returns kotlinx.coroutines.flow.MutableStateFlow(sampleFavorites.take(4))
+
         coEvery { libraryRepository.getArtists() } returns sampleArtists
         coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
         coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites
 
-        val viewModel = HomeViewModel(libraryRepository, playerController)
+        val viewModel = HomeViewModel(libraryRepository, playerController, mockRecentManager)
         advanceUntilIdle()
 
         val track = sampleFavorites[0]
@@ -169,6 +173,46 @@ class HomeViewModelTest {
         verify {
             playerController.playTrack(track, sampleFavorites.take(4))
         }
+    }
+
+    @Test
+    fun recentTracks_emptyRemainsEmpty_doesNotFallbackToFavorites() = runTest(testDispatcher) {
+        val mockRecentManager = mockk<com.coreplayer.app.data.repository.RecentTracksManager>(relaxed = true)
+        every { mockRecentManager.loadRecent() } returns emptyList()
+        every { mockRecentManager.recentTracks } returns kotlinx.coroutines.flow.MutableStateFlow(emptyList())
+
+        coEvery { libraryRepository.getArtists() } returns sampleArtists
+        coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
+        coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites
+
+        val viewModel = HomeViewModel(libraryRepository, playerController, mockRecentManager)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.recentTracks.isEmpty())
+    }
+
+    @Test
+    fun recentTracks_updatesWhenManagerFlowUpdates() = runTest(testDispatcher) {
+        val recentFlow = kotlinx.coroutines.flow.MutableStateFlow<List<TrackDto>>(sampleFavorites.take(2))
+        val mockRecentManager = mockk<com.coreplayer.app.data.repository.RecentTracksManager>(relaxed = true)
+        every { mockRecentManager.loadRecent() } returns sampleFavorites.take(2)
+        every { mockRecentManager.recentTracks } returns recentFlow
+
+        coEvery { libraryRepository.getArtists() } returns sampleArtists
+        coEvery { libraryRepository.getPlaylists() } returns samplePlaylists
+        coEvery { libraryRepository.getFavoriteTracks() } returns sampleFavorites
+
+        val viewModel = HomeViewModel(libraryRepository, playerController, mockRecentManager)
+        advanceUntilIdle()
+
+        assertEquals(2, viewModel.uiState.value.recentTracks.size)
+
+        // Clear recent tracks (e.g. on server IP change)
+        recentFlow.value = emptyList()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.recentTracks.isEmpty())
     }
 
     @Test
