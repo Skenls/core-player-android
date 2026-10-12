@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -122,6 +125,8 @@ fun HomeScreen(
         )
     }
 
+    val navBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
     var selectedArtistForDetail by remember { mutableStateOf<com.coreplayer.app.data.model.ArtistDto?>(null) }
 
     selectedArtistForDetail?.let { artist ->
@@ -130,7 +135,8 @@ fun HomeScreen(
             baseUrl = playerController.baseUrl,
             playerController = playerController,
             libraryRepository = libraryRepository,
-            onDismiss = { selectedArtistForDetail = null }
+            onDismiss = { selectedArtistForDetail = null },
+            bottomInset = navBarInset
         )
     }
 

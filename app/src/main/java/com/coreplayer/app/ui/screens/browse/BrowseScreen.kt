@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -96,6 +99,8 @@ fun BrowseScreen(
     var albumTracks by remember { mutableStateOf<List<TrackDto>>(emptyList()) }
     var isLoadingAlbumTracks by remember { mutableStateOf(false) }
 
+    val navBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
     selectedAlbumForDetail?.let { album ->
         AlbumDetailSheet(
             album = album,
@@ -112,7 +117,8 @@ fun BrowseScreen(
                 if (albumTracks.isNotEmpty()) {
                     playerController.playTrack(albumTracks.first(), albumTracks)
                 }
-            }
+            },
+            bottomInset = navBarInset
         )
     }
 
@@ -124,7 +130,8 @@ fun BrowseScreen(
             baseUrl = playerController.baseUrl,
             playerController = playerController,
             libraryRepository = libraryRepository,
-            onDismiss = { selectedArtistForDetail = null }
+            onDismiss = { selectedArtistForDetail = null },
+            bottomInset = navBarInset
         )
     }
 

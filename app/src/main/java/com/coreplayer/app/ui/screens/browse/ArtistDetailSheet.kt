@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -30,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,13 +45,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.coreplayer.app.CorePlayerApp
@@ -81,7 +88,8 @@ fun ArtistDetailSheet(
     baseUrl: String,
     playerController: PlayerControllerManager,
     libraryRepository: LibraryRepository,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    bottomInset: Dp = 0.dp
 ) {
     val cleanedArtistName = cleanArtistName(artist.name)
     val playerState by playerController.state.collectAsStateWithLifecycle()
@@ -152,6 +160,10 @@ fun ArtistDetailSheet(
         }
     }
 
+    val localNavPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val effectiveBottomInset = maxOf(bottomInset, localNavPadding)
+    val bubbleBottomPadding = maxOf(effectiveBottomInset, 24.dp) + 12.dp
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -159,12 +171,21 @@ fun ArtistDetailSheet(
             decorFitsSystemWindows = false
         )
     ) {
+        val dialogView = LocalView.current
+        DisposableEffect(dialogView) {
+            val window = (dialogView.parent as? DialogWindowProvider)?.window
+            if (window != null) {
+                WindowCompat.setDecorFitsSystemWindows(window, false)
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            }
+            onDispose {}
+        }
+
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(DarkBackground)
                 .statusBarsPadding()
-                .navigationBarsPadding()
         ) {
             val isWideLayout = maxWidth > 650.dp && maxWidth > maxHeight
 
@@ -277,7 +298,7 @@ fun ArtistDetailSheet(
                     LazyVerticalGrid(
                         columns = responsiveGridColumns(minCardWidth = 150.dp),
                         contentPadding = PaddingValues(
-                            bottom = if (playerState.currentTrack != null) 90.dp else 16.dp
+                            bottom = if (playerState.currentTrack != null) (bubbleBottomPadding + 76.dp) else (bubbleBottomPadding + 16.dp)
                         ),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -317,7 +338,7 @@ fun ArtistDetailSheet(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(bottom = bubbleBottomPadding)
                 ) {
                     FloatingMiniPlayer(
                         playerState = playerState,
@@ -350,7 +371,8 @@ fun ArtistDetailSheet(
                         if (albumTracks.isNotEmpty()) {
                             playerController.playTrack(albumTracks.first(), albumTracks)
                         }
-                    }
+                    },
+                    bottomInset = effectiveBottomInset
                 )
             }
 

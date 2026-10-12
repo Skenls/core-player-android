@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -22,9 +25,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,18 +43,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.coreplayer.app.CorePlayerApp
@@ -85,7 +95,8 @@ fun AlbumDetailSheet(
     libraryRepository: LibraryRepository,
     onDismiss: () -> Unit,
     onPlayTrack: (TrackDto, List<TrackDto>) -> Unit,
-    onPlayAll: () -> Unit
+    onPlayAll: () -> Unit,
+    bottomInset: Dp = 0.dp
 ) {
     val cleanedArtist = cleanArtistName(album.artist)
     val playerState by playerController.state.collectAsStateWithLifecycle()
@@ -95,6 +106,9 @@ fun AlbumDetailSheet(
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var playlistsForAdd by remember { mutableStateOf<List<PlaylistDto>>(emptyList()) }
     var isCurrentTrackFavorite by remember { mutableStateOf(false) }
+    var favoriteTrackIds by remember(tracks) {
+        mutableStateOf(tracks.filter { it.isFavorite }.map { it.id }.toSet())
+    }
     val scope = rememberCoroutineScope()
 
     // Observe and sync favorite state for current playing track
@@ -103,6 +117,7 @@ fun AlbumDetailSheet(
         if (currentId != null) {
             try {
                 val favIds = libraryRepository.getFavoriteIds()
+                favoriteTrackIds = favIds.track_ids.toSet()
                 isCurrentTrackFavorite = favIds.track_ids.contains(currentId)
             } catch (e: Exception) {
                 isCurrentTrackFavorite = playerState.currentTrack?.isFavorite ?: false
@@ -112,15 +127,24 @@ fun AlbumDetailSheet(
         }
     }
 
+    // Load and react to favorite changes
+    LaunchedEffect(Unit) {
+        try {
+            val favIds = libraryRepository.getFavoriteIds()
+            favoriteTrackIds = favIds.track_ids.toSet()
+        } catch (_: Exception) {}
+    }
+
     LaunchedEffect(Unit) {
         libraryRepository.favoritesChanged.collect {
-            val currentId = playerState.currentTrack?.id
-            if (currentId != null) {
-                try {
-                    val favIds = libraryRepository.getFavoriteIds()
+            try {
+                val favIds = libraryRepository.getFavoriteIds()
+                favoriteTrackIds = favIds.track_ids.toSet()
+                val currentId = playerState.currentTrack?.id
+                if (currentId != null) {
                     isCurrentTrackFavorite = favIds.track_ids.contains(currentId)
-                } catch (_: Exception) {}
-            }
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -131,8 +155,43 @@ fun AlbumDetailSheet(
                 try {
                     val res = libraryRepository.toggleFavorite(currentId, "track")
                     isCurrentTrackFavorite = res.is_favorite
+                    favoriteTrackIds = if (res.is_favorite) {
+                        favoriteTrackIds + currentId
+                    } else {
+                        favoriteTrackIds - currentId
+                    }
                 } catch (e: Exception) {
                     android.util.Log.e("AlbumDetailSheet", "Failed to toggle favorite", e)
+                }
+            }
+        }
+    }
+
+    val toggleTrackFavorite: (String) -> Unit = { trackId ->
+        val wasFavorite = favoriteTrackIds.contains(trackId)
+        val newFavorite = !wasFavorite
+        // Optimistic UI update
+        favoriteTrackIds = if (newFavorite) favoriteTrackIds + trackId else favoriteTrackIds - trackId
+        if (playerState.currentTrack?.id == trackId) {
+            isCurrentTrackFavorite = newFavorite
+        }
+        scope.launch {
+            try {
+                val res = libraryRepository.toggleFavorite(trackId, "track")
+                favoriteTrackIds = if (res.is_favorite) {
+                    favoriteTrackIds + trackId
+                } else {
+                    favoriteTrackIds - trackId
+                }
+                if (playerState.currentTrack?.id == trackId) {
+                    isCurrentTrackFavorite = res.is_favorite
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AlbumDetailSheet", "Failed to toggle favorite for track $trackId", e)
+                // Revert on failure
+                favoriteTrackIds = if (wasFavorite) favoriteTrackIds + trackId else favoriteTrackIds - trackId
+                if (playerState.currentTrack?.id == trackId) {
+                    isCurrentTrackFavorite = wasFavorite
                 }
             }
         }
@@ -156,6 +215,11 @@ fun AlbumDetailSheet(
     )
     val isPlayingThisAlbum = isTrackFromThisAlbum && playerState.isPlaying
 
+    val localNavPadding = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val effectiveBottomInset = maxOf(bottomInset, localNavPadding)
+    // Ensures bubble is always safely above system gesture / 3-button navigation bars
+    val bubbleBottomPadding = maxOf(effectiveBottomInset, 24.dp) + 12.dp
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -163,12 +227,21 @@ fun AlbumDetailSheet(
             decorFitsSystemWindows = false
         )
     ) {
+        val dialogView = LocalView.current
+        DisposableEffect(dialogView) {
+            val window = (dialogView.parent as? DialogWindowProvider)?.window
+            if (window != null) {
+                WindowCompat.setDecorFitsSystemWindows(window, false)
+                window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            }
+            onDispose {}
+        }
+
         androidx.compose.foundation.layout.BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(DarkBackground)
                 .statusBarsPadding()
-                .navigationBarsPadding()
         ) {
             val isWideLayout = maxWidth > 650.dp && maxWidth > maxHeight
 
@@ -318,12 +391,13 @@ fun AlbumDetailSheet(
                                     .fillMaxWidth()
                                     .weight(1f),
                                 contentPadding = PaddingValues(
-                                    bottom = if (playerState.currentTrack != null) 90.dp else 16.dp
+                                    bottom = if (playerState.currentTrack != null) (bubbleBottomPadding + 72.dp) else (bubbleBottomPadding + 16.dp)
                                 ),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 itemsIndexed(tracks, key = { index, t -> "${t.id}_$index" }) { index, track ->
                                     val isThisTrackActive = currentTrack?.id == track.id
+                                    val isTrackFavorite = favoriteTrackIds.contains(track.id)
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -362,7 +436,21 @@ fun AlbumDetailSheet(
                                                 )
                                             }
                                         }
-                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        IconButton(
+                                            onClick = { toggleTrackFavorite(track.id) },
+                                            modifier = Modifier.size(36.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = if (isTrackFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                                contentDescription = if (isTrackFavorite) "Удалить из избранного" else "В избранное",
+                                                tint = if (isTrackFavorite) Color(0xFFEF4444) else TextSecondary.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(19.dp)
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(4.dp))
+
                                         Text(
                                             text = formatTime(track.duration * 1000L),
                                             color = if (isThisTrackActive) AccentOrange else TextSecondary,
@@ -527,12 +615,13 @@ fun AlbumDetailSheet(
                             .fillMaxWidth()
                             .weight(1f),
                         contentPadding = PaddingValues(
-                            bottom = if (playerState.currentTrack != null) 90.dp else 16.dp
+                            bottom = if (playerState.currentTrack != null) (bubbleBottomPadding + 72.dp) else (bubbleBottomPadding + 16.dp)
                         ),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         itemsIndexed(tracks, key = { index, t -> "${t.id}_$index" }) { index, track ->
                             val isThisTrackActive = currentTrack?.id == track.id
+                            val isTrackFavorite = favoriteTrackIds.contains(track.id)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -576,7 +665,19 @@ fun AlbumDetailSheet(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.width(8.dp))
+                                IconButton(
+                                    onClick = { toggleTrackFavorite(track.id) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (isTrackFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                        contentDescription = if (isTrackFavorite) "Удалить из избранного" else "В избранное",
+                                        tint = if (isTrackFavorite) Color(0xFFEF4444) else TextSecondary.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
 
                                 Text(
                                     text = formatTime(track.duration * 1000L),
@@ -595,7 +696,7 @@ fun AlbumDetailSheet(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
+                        .padding(bottom = bubbleBottomPadding)
                 ) {
                     FloatingMiniPlayer(
                         playerState = playerState,
