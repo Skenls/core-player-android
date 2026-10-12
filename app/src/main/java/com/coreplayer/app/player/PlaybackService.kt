@@ -98,7 +98,8 @@ class PlaybackService : MediaSessionService() {
      * providing an overlapping crossfade without silence.
      */
     fun crossfadeTo(
-        nextMediaItem: MediaItem,
+        mediaItems: List<MediaItem>,
+        startIndex: Int,
         durationMs: Long = 3500L,
         onCompleted: (() -> Unit)? = null
     ) {
@@ -109,7 +110,10 @@ class PlaybackService : MediaSessionService() {
 
         incoming.stop()
         incoming.clearMediaItems()
-        incoming.setMediaItem(nextMediaItem)
+        val safeIndex = startIndex.coerceIn(0, (mediaItems.size - 1).coerceAtLeast(0))
+        incoming.setMediaItems(mediaItems, safeIndex, 0L)
+        incoming.repeatMode = outgoing.repeatMode
+        incoming.shuffleModeEnabled = outgoing.shuffleModeEnabled
         incoming.prepare()
         incoming.volume = 0f
         incoming.play()
@@ -134,6 +138,14 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    fun crossfadeTo(
+        nextMediaItem: MediaItem,
+        durationMs: Long = 3500L,
+        onCompleted: (() -> Unit)? = null
+    ) {
+        crossfadeTo(listOf(nextMediaItem), 0, durationMs, onCompleted)
+    }
+
     override fun onDestroy() {
         serviceScope.cancel()
         crossfadeJob?.cancel()
@@ -148,7 +160,7 @@ class PlaybackService : MediaSessionService() {
         super.onDestroy()
     }
 
-    private class MediaSessionCallback : MediaSession.Callback {
+    private inner class MediaSessionCallback : MediaSession.Callback {
         override fun onConnect(
             session: MediaSession,
             controller: MediaSession.ControllerInfo
@@ -164,6 +176,27 @@ class PlaybackService : MediaSessionService() {
                 .add(androidx.media3.common.Player.COMMAND_SEEK_FORWARD)
                 .build()
             return MediaSession.ConnectionResult.accept(sessionCommands, playerCommands)
+        }
+
+        override fun onMediaButtonEvent(
+            session: MediaSession,
+            controllerInfo: MediaSession.ControllerInfo,
+            intent: android.content.Intent
+        ): Boolean {
+            val keyEvent = intent.getParcelableExtra<android.view.KeyEvent>(android.content.Intent.EXTRA_KEY_EVENT)
+            if (keyEvent != null && keyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                when (keyEvent.keyCode) {
+                    android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                        CorePlayerApp.instance.playerController.skipNext()
+                        return true
+                    }
+                    android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                        CorePlayerApp.instance.playerController.skipPrevious()
+                        return true
+                    }
+                }
+            }
+            return super.onMediaButtonEvent(session, controllerInfo, intent)
         }
     }
 }

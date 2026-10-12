@@ -356,4 +356,50 @@ class PlayerControllerManagerTest {
 
         verify { mockPlayer.seekTo(0, 0L) }
     }
+
+    @Test
+    fun playbackEnded_advancesToNextTrackInQueue() {
+        val listenerSlot = slot<Player.Listener>()
+        every { mockPlayer.addListener(capture(listenerSlot)) } returns Unit
+
+        val manager = createManager()
+        manager.attachPlayer(mockPlayer)
+
+        val track1 = TrackDto(id = "trk-1", title = "Song 1")
+        val track2 = TrackDto(id = "trk-2", title = "Song 2")
+        val queue = listOf(track1, track2)
+
+        manager.playTrack(track1, queue)
+
+        every { mockPlayer.hasNextMediaItem() } returns true
+        every { mockPlayer.repeatMode } returns Player.REPEAT_MODE_OFF
+        every { mockPlayer.shuffleModeEnabled } returns false
+
+        // Simulate track ending
+        listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
+
+        verify { mockPlayer.seekToNextMediaItem() }
+    }
+
+    @Test
+    fun playbackEnded_lastTrackWithRepeatOff_stopsPlayback() {
+        val listenerSlot = slot<Player.Listener>()
+        every { mockPlayer.addListener(capture(listenerSlot)) } returns Unit
+
+        val manager = createManager()
+        manager.attachPlayer(mockPlayer)
+
+        val track1 = TrackDto(id = "trk-1", title = "Song 1")
+        val queue = listOf(track1)
+
+        manager.playTrack(track1, queue)
+
+        every { mockPlayer.hasNextMediaItem() } returns false
+        every { mockPlayer.repeatMode } returns Player.REPEAT_MODE_OFF
+        every { mockPlayer.shuffleModeEnabled } returns false
+
+        listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
+
+        assertFalse(manager.state.value.isPlaying)
+    }
 }

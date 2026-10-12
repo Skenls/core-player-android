@@ -64,6 +64,22 @@ open class PlayerControllerManager(
                     durationMs = duration
                 )
             }
+            if (playbackState == Player.STATE_ENDED) {
+                val isRepeatOne = (player?.repeatMode == Player.REPEAT_MODE_ONE) || _state.value.repeatMode == RepeatMode.ONE
+                val isRepeatAll = (player?.repeatMode == Player.REPEAT_MODE_ALL) || _state.value.repeatMode == RepeatMode.ALL
+                if (isRepeatOne) {
+                    player?.seekTo(0, 0L)
+                    player?.play()
+                } else {
+                    val nextTrack = getNextTrackInQueue()
+                    val nextIndex = if (nextTrack != null) currentQueue.indexOfFirst { it.id == nextTrack.id } else -1
+                    if (nextTrack != null && (isRepeatAll || nextIndex > 0)) {
+                        skipNext()
+                    } else {
+                        _state.update { it.copy(isPlaying = false, currentPositionMs = 0L) }
+                    }
+                }
+            }
         }
 
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -188,7 +204,8 @@ open class PlayerControllerManager(
                         if (next != null && svc != null) {
                             isCrossfading = true
                             val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
-                            val mediaItem = next.toMediaItem(baseUrl, codec)
+                            val nextIndex = currentQueue.indexOfFirst { it.id == next.id }.coerceAtLeast(0)
+                            val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, codec) }
                             _state.update {
                                 it.copy(
                                     currentTrack = next,
@@ -197,7 +214,7 @@ open class PlayerControllerManager(
                                     isPlaying = true
                                 )
                             }
-                            svc.crossfadeTo(mediaItem, 3500L) {
+                            svc.crossfadeTo(mediaItems, nextIndex, 3500L) {
                                 isCrossfading = false
                             }
                         }
@@ -353,7 +370,8 @@ open class PlayerControllerManager(
         val svc = PlaybackService.instance
         if (isCrossfade && next != null && svc != null) {
             val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
-            val mediaItem = next.toMediaItem(baseUrl, codec)
+            val nextIndex = currentQueue.indexOfFirst { it.id == next.id }.coerceAtLeast(0)
+            val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, codec) }
             _state.update {
                 it.copy(
                     currentTrack = next,
@@ -362,7 +380,7 @@ open class PlayerControllerManager(
                     isPlaying = true
                 )
             }
-            svc.crossfadeTo(mediaItem, 1000L) {
+            svc.crossfadeTo(mediaItems, nextIndex, 1000L) {
                 isCrossfading = false
             }
             return
@@ -400,60 +418,37 @@ open class PlayerControllerManager(
         val isShuffle = p.shuffleModeEnabled || _state.value.shuffleModeEnabled
         val isRepeatAll = p.repeatMode == Player.REPEAT_MODE_ALL || _state.value.repeatMode == RepeatMode.ALL
 
-        // If shuffle is enabled and queue has multiple tracks:
-        if (isShuffle && queue.size > 1) {
+        val targetIndex = if (isShuffle && queue.size > 1) {
             val candidateIndices = queue.indices.filter { it != currentIndex }
-            val nextIndex = candidateIndices.randomOrNull() ?: 0
-            val nextTrack = queue.getOrNull(nextIndex)
-            if (nextTrack != null) {
-                _state.update {
-                    it.copy(
-                        currentTrack = nextTrack,
-                        currentPositionMs = 0L,
-                        durationMs = (nextTrack.duration * 1000L).coerceAtLeast(0L),
-                        isPlaying = true,
-                        isBuffering = true
-                    )
-                }
-            }
-            p.seekTo(nextIndex, 0L)
-            p.play()
-            return
+            candidateIndices.randomOrNull() ?: 0
+        } else if (currentIndex in 0 until queue.size - 1) {
+            currentIndex + 1
+        } else if (isRepeatAll && queue.isNotEmpty()) {
+            0
+        } else {
+            null
         }
 
-        // If not at the end of the queue: advance to next item
-        if (currentIndex in 0 until queue.size - 1) {
-            val nextIndex = currentIndex + 1
-            val nextTrack = queue[nextIndex]
+        if (targetIndex != null) {
+            val targetTrack = queue[targetIndex]
             _state.update {
                 it.copy(
-                    currentTrack = nextTrack,
+                    currentTrack = targetTrack,
                     currentPositionMs = 0L,
-                    durationMs = (nextTrack.duration * 1000L).coerceAtLeast(0L),
+                    durationMs = (targetTrack.duration * 1000L).coerceAtLeast(0L),
                     isPlaying = true,
                     isBuffering = true
                 )
             }
-            p.seekTo(nextIndex, 0L)
-            p.play()
-            return
-        }
-
-        // If at the last track of current queue:
-        if (isRepeatAll && queue.isNotEmpty()) {
-            val firstTrack = queue[0]
-            _state.update {
-                it.copy(
-                    currentTrack = firstTrack,
-                    currentPositionMs = 0L,
-                    durationMs = (firstTrack.duration * 1000L).coerceAtLeast(0L),
-                    isPlaying = true,
-                    isBuffering = true
-                )
+            if (p.mediaItemCount in 1..targetIndex) {
+                val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (e: Exception) { "auto" }
+                val mediaItems = queue.map { it.toMediaItem(baseUrl, codec) }
+                p.setMediaItems(mediaItems, targetIndex, 0L)
+                p.prepare()
+            } else {
+                p.seekTo(targetIndex, 0L)
             }
-            p.seekTo(0, 0L)
             p.play()
-            return
         }
     }
 
@@ -470,7 +465,8 @@ open class PlayerControllerManager(
         val svc = PlaybackService.instance
         if (isCrossfade && prev != null && svc != null) {
             val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
-            val mediaItem = prev.toMediaItem(baseUrl, codec)
+            val prevIndex = currentQueue.indexOfFirst { it.id == prev.id }.coerceAtLeast(0)
+            val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, codec) }
             _state.update {
                 it.copy(
                     currentTrack = prev,
@@ -479,7 +475,7 @@ open class PlayerControllerManager(
                     isPlaying = true
                 )
             }
-            svc.crossfadeTo(mediaItem, 1000L) {
+            svc.crossfadeTo(mediaItems, prevIndex, 1000L) {
                 isCrossfading = false
             }
             return
@@ -522,7 +518,14 @@ open class PlayerControllerManager(
                     isBuffering = true
                 )
             }
-            p.seekTo(prevIndex, 0L)
+            if (p.mediaItemCount in 1..prevIndex) {
+                val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (e: Exception) { "auto" }
+                val mediaItems = queue.map { it.toMediaItem(baseUrl, codec) }
+                p.setMediaItems(mediaItems, prevIndex, 0L)
+                p.prepare()
+            } else {
+                p.seekTo(prevIndex, 0L)
+            }
             p.play()
         } else {
             p.seekTo(0L)

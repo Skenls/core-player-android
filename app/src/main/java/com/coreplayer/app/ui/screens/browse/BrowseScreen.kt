@@ -101,6 +101,8 @@ fun BrowseScreen(
             tracks = albumTracks,
             isLoading = isLoadingAlbumTracks,
             baseUrl = playerController.baseUrl,
+            playerController = playerController,
+            libraryRepository = libraryRepository,
             onDismiss = { selectedAlbumForDetail = null },
             onPlayTrack = { track, list ->
                 playerController.playTrack(track, list)
