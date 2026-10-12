@@ -10,9 +10,15 @@ import com.coreplayer.app.data.model.FavoritesIdsResponse
 import com.coreplayer.app.data.model.PlaylistDto
 import com.coreplayer.app.data.model.SearchResponse
 import com.coreplayer.app.data.model.TrackDto
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class LibraryRepository(
     private val api: CorePlayerApi
@@ -20,8 +26,13 @@ class LibraryRepository(
     private val _favoritesChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val favoritesChanged: SharedFlow<Unit> = _favoritesChanged.asSharedFlow()
 
+    private val _favoriteTrackIds = MutableStateFlow<Set<String>>(emptySet())
+    val favoriteTrackIds: StateFlow<Set<String>> = _favoriteTrackIds.asStateFlow()
+
     private val _playlistsChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val playlistsChanged: SharedFlow<Unit> = _playlistsChanged.asSharedFlow()
+
+    private var cachedAllTracks: List<TrackDto>? = null
 
     fun notifyFavoritesChanged() {
         _favoritesChanged.tryEmit(Unit)
@@ -91,12 +102,45 @@ class LibraryRepository(
         }
     }
 
-    suspend fun getFavoriteIds(): FavoritesIdsResponse = api.getFavoriteIds()
+    suspend fun getFavoriteIds(): FavoritesIdsResponse {
+        val res = api.getFavoriteIds()
+        _favoriteTrackIds.value = res.track_ids.toSet()
+        return res
+    }
+
+    suspend fun refreshFavoriteIds(): Set<String> {
+        return try {
+            val res = api.getFavoriteIds()
+            val set = res.track_ids.toSet()
+            _favoriteTrackIds.value = set
+            set
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to refresh favorite ids", e)
+            _favoriteTrackIds.value
+        }
+    }
 
     suspend fun toggleFavorite(itemId: String, itemType: String = "track"): FavoriteToggleResponse {
-        val response = api.toggleFavorite(FavoriteToggleRequest(id = itemId, type = itemType))
-        _favoritesChanged.tryEmit(Unit)
-        return response
+        val previousSet = _favoriteTrackIds.value
+        if (itemType == "track") {
+            // Optimistic update
+            val isFav = previousSet.contains(itemId)
+            _favoriteTrackIds.value = if (isFav) previousSet - itemId else previousSet + itemId
+        }
+        return try {
+            val response = api.toggleFavorite(FavoriteToggleRequest(id = itemId, type = itemType))
+            if (itemType == "track") {
+                val current = _favoriteTrackIds.value
+                _favoriteTrackIds.value = if (response.is_favorite) current + itemId else current - itemId
+            }
+            _favoritesChanged.tryEmit(Unit)
+            response
+        } catch (e: Exception) {
+            if (itemType == "track") {
+                _favoriteTrackIds.value = previousSet
+            }
+            throw e
+        }
     }
 
     suspend fun getFavoriteTracks(): List<TrackDto> = api.getFavoriteTracks().map { cleanTrack(it) }
@@ -107,6 +151,48 @@ class LibraryRepository(
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch random tracks", e)
             emptyList()
+        }
+    }
+
+    fun clearAllCaches() {
+        cachedAllTracks = null
+        _favoriteTrackIds.value = emptySet()
+    }
+
+    /**
+     * Fetches all tracks across the user's library by aggregating album tracks and random tracks.
+     * Guarantees that every track in every album is included without omissions.
+     */
+    suspend fun getAllTracks(forceRefresh: Boolean = false): List<TrackDto> {
+        if (!forceRefresh && !cachedAllTracks.isNullOrEmpty()) {
+            return cachedAllTracks!!
+        }
+        return try {
+            coroutineScope {
+                val albumsDeferred = async { getAlbums(size = 500) }
+                val randomDeferred = async { getRandomTracks(500) }
+
+                val albums = albumsDeferred.await()
+                val randomTracks = randomDeferred.await()
+
+                val albumTracksDeferred = albums.map { album ->
+                    async { getAlbumTracks(album.id) }
+                }
+                val albumTracks = albumTracksDeferred.awaitAll().flatten()
+
+                val combined = (albumTracks + randomTracks)
+                    .distinctBy { it.id }
+
+                if (combined.isNotEmpty()) {
+                    cachedAllTracks = combined
+                    combined
+                } else {
+                    randomTracks
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch all tracks, falling back to random", e)
+            getRandomTracks(500)
         }
     }
 

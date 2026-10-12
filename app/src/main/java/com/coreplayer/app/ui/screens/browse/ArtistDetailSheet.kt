@@ -105,6 +105,7 @@ fun ArtistDetailSheet(
     var showNowPlayingSheet by remember { mutableStateOf(false) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var playlistsForAdd by remember { mutableStateOf<List<PlaylistDto>>(emptyList()) }
+    val favoriteTrackIds by libraryRepository.favoriteTrackIds.collectAsStateWithLifecycle()
     var isCurrentTrackFavorite by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -132,17 +133,12 @@ fun ArtistDetailSheet(
     }
 
     // Observe and sync favorite state for current playing track
-    LaunchedEffect(playerState.currentTrack?.id) {
+    LaunchedEffect(playerState.currentTrack?.id, favoriteTrackIds) {
         val currentId = playerState.currentTrack?.id
-        if (currentId != null) {
-            try {
-                val favIds = libraryRepository.getFavoriteIds()
-                isCurrentTrackFavorite = favIds.track_ids.contains(currentId)
-            } catch (_: Exception) {
-                isCurrentTrackFavorite = playerState.currentTrack?.isFavorite ?: false
-            }
+        isCurrentTrackFavorite = if (currentId != null) {
+            favoriteTrackIds.contains(currentId)
         } else {
-            isCurrentTrackFavorite = false
+            false
         }
     }
 

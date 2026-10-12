@@ -79,6 +79,7 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
             initRepositories(value)
             if (oldUrl.isNotBlank() && oldUrl.trimEnd('/') != value.trimEnd('/')) {
                 recentTracksManager.clear()
+                libraryRepository.clearAllCaches()
             }
         }
 

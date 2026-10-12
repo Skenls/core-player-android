@@ -88,10 +88,19 @@ class RepositoryTest {
     fun libraryRepository_favorites() = runTest {
         val favIds = libraryRepository.getFavoriteIds()
         assertEquals(listOf("trk-1"), favIds.track_ids)
+        assertTrue(libraryRepository.favoriteTrackIds.value.contains("trk-1"))
 
         val toggleRes = libraryRepository.toggleFavorite("trk-2", "track")
         assertEquals("trk-2", toggleRes.item_id)
         assertTrue(toggleRes.is_favorite)
+        assertTrue(libraryRepository.favoriteTrackIds.value.contains("trk-2"))
+    }
+
+    @Test
+    fun libraryRepository_getAllTracks_combinesAlbumAndRandomTracks() = runTest {
+        val tracks = libraryRepository.getAllTracks()
+        assertTrue(tracks.any { it.id == "trk-album-1" })
+        assertTrue(tracks.any { it.id == "trk-rnd-1" })
     }
 
     @Test

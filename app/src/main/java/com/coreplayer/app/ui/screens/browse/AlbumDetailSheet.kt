@@ -105,46 +105,22 @@ fun AlbumDetailSheet(
     var showNowPlayingSheet by remember { mutableStateOf(false) }
     var showAddToPlaylistDialog by remember { mutableStateOf(false) }
     var playlistsForAdd by remember { mutableStateOf<List<PlaylistDto>>(emptyList()) }
+    val favoriteTrackIds by libraryRepository.favoriteTrackIds.collectAsStateWithLifecycle()
     var isCurrentTrackFavorite by remember { mutableStateOf(false) }
-    var favoriteTrackIds by remember(tracks) {
-        mutableStateOf(tracks.filter { it.isFavorite }.map { it.id }.toSet())
-    }
     val scope = rememberCoroutineScope()
 
+    // Sync favorites on open
+    LaunchedEffect(Unit) {
+        libraryRepository.refreshFavoriteIds()
+    }
+
     // Observe and sync favorite state for current playing track
-    LaunchedEffect(playerState.currentTrack?.id) {
+    LaunchedEffect(playerState.currentTrack?.id, favoriteTrackIds) {
         val currentId = playerState.currentTrack?.id
-        if (currentId != null) {
-            try {
-                val favIds = libraryRepository.getFavoriteIds()
-                favoriteTrackIds = favIds.track_ids.toSet()
-                isCurrentTrackFavorite = favIds.track_ids.contains(currentId)
-            } catch (e: Exception) {
-                isCurrentTrackFavorite = playerState.currentTrack?.isFavorite ?: false
-            }
+        isCurrentTrackFavorite = if (currentId != null) {
+            favoriteTrackIds.contains(currentId)
         } else {
-            isCurrentTrackFavorite = false
-        }
-    }
-
-    // Load and react to favorite changes
-    LaunchedEffect(Unit) {
-        try {
-            val favIds = libraryRepository.getFavoriteIds()
-            favoriteTrackIds = favIds.track_ids.toSet()
-        } catch (_: Exception) {}
-    }
-
-    LaunchedEffect(Unit) {
-        libraryRepository.favoritesChanged.collect {
-            try {
-                val favIds = libraryRepository.getFavoriteIds()
-                favoriteTrackIds = favIds.track_ids.toSet()
-                val currentId = playerState.currentTrack?.id
-                if (currentId != null) {
-                    isCurrentTrackFavorite = favIds.track_ids.contains(currentId)
-                }
-            } catch (_: Exception) {}
+            false
         }
     }
 
@@ -155,11 +131,6 @@ fun AlbumDetailSheet(
                 try {
                     val res = libraryRepository.toggleFavorite(currentId, "track")
                     isCurrentTrackFavorite = res.is_favorite
-                    favoriteTrackIds = if (res.is_favorite) {
-                        favoriteTrackIds + currentId
-                    } else {
-                        favoriteTrackIds - currentId
-                    }
                 } catch (e: Exception) {
                     android.util.Log.e("AlbumDetailSheet", "Failed to toggle favorite", e)
                 }
@@ -168,31 +139,11 @@ fun AlbumDetailSheet(
     }
 
     val toggleTrackFavorite: (String) -> Unit = { trackId ->
-        val wasFavorite = favoriteTrackIds.contains(trackId)
-        val newFavorite = !wasFavorite
-        // Optimistic UI update
-        favoriteTrackIds = if (newFavorite) favoriteTrackIds + trackId else favoriteTrackIds - trackId
-        if (playerState.currentTrack?.id == trackId) {
-            isCurrentTrackFavorite = newFavorite
-        }
         scope.launch {
             try {
-                val res = libraryRepository.toggleFavorite(trackId, "track")
-                favoriteTrackIds = if (res.is_favorite) {
-                    favoriteTrackIds + trackId
-                } else {
-                    favoriteTrackIds - trackId
-                }
-                if (playerState.currentTrack?.id == trackId) {
-                    isCurrentTrackFavorite = res.is_favorite
-                }
+                libraryRepository.toggleFavorite(trackId, "track")
             } catch (e: Exception) {
                 android.util.Log.e("AlbumDetailSheet", "Failed to toggle favorite for track $trackId", e)
-                // Revert on failure
-                favoriteTrackIds = if (wasFavorite) favoriteTrackIds + trackId else favoriteTrackIds - trackId
-                if (playerState.currentTrack?.id == trackId) {
-                    isCurrentTrackFavorite = wasFavorite
-                }
             }
         }
     }

@@ -23,7 +23,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +55,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.coreplayer.app.data.model.PlaylistDto
 import com.coreplayer.app.data.model.TrackDto
@@ -250,6 +253,8 @@ fun LibraryScreen(
         )
     }
 
+    val favoriteTrackIds by libraryRepository.favoriteTrackIds.collectAsStateWithLifecycle()
+
     LibraryScreenContent(
         selectedTabIndex = selectedTab,
         onTabSelected = { selectedTab = it },
@@ -258,6 +263,16 @@ fun LibraryScreen(
         playlistCovers = playlistCovers,
         isLoading = isLoading,
         baseUrl = playerController.baseUrl,
+        favoriteTrackIds = favoriteTrackIds,
+        onToggleFavorite = { track ->
+            scope.launch {
+                try {
+                    libraryRepository.toggleFavorite(track.id, "track")
+                } catch (e: Exception) {
+                    android.util.Log.e("LibraryScreen", "Failed to toggle favorite", e)
+                }
+            }
+        },
         onTrackClick = { track ->
             playerController.playTrack(track, favorites)
         },
@@ -280,6 +295,8 @@ fun LibraryScreenContent(
     playlistCovers: Map<String, String?> = emptyMap(),
     isLoading: Boolean,
     baseUrl: String,
+    favoriteTrackIds: Set<String> = emptySet(),
+    onToggleFavorite: (TrackDto) -> Unit = {},
     onTrackClick: (TrackDto) -> Unit,
     onCreatePlaylistClick: () -> Unit = {},
     onPlaylistClick: (PlaylistDto) -> Unit,
@@ -400,6 +417,8 @@ fun LibraryScreenContent(
                                     LibraryTrackItem(
                                         track = track,
                                         baseUrl = baseUrl,
+                                        isFavorite = favoriteTrackIds.contains(track.id),
+                                        onToggleFavorite = { onToggleFavorite(track) },
                                         onClick = { onTrackClick(track) }
                                     )
                                 }
@@ -490,7 +509,9 @@ fun LibraryTrackItem(
     track: TrackDto,
     baseUrl: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isFavorite: Boolean = false,
+    onToggleFavorite: (() -> Unit)? = null
 ) {
     Row(
         modifier = modifier
@@ -546,7 +567,22 @@ fun LibraryTrackItem(
             )
         }
 
-        Spacer(modifier = Modifier.width(6.dp))
+        if (onToggleFavorite != null) {
+            IconButton(
+                onClick = onToggleFavorite,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                    contentDescription = if (isFavorite) "Удалить из избранного" else "В избранное",
+                    tint = if (isFavorite) Color(0xFFEF4444) else TextSecondary.copy(alpha = 0.5f),
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+        } else {
+            Spacer(modifier = Modifier.width(6.dp))
+        }
 
         if (track.duration > 0) {
             Text(

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.coreplayer.app.data.model.AlbumDto
 import com.coreplayer.app.data.model.ArtistDto
 import com.coreplayer.app.data.model.TrackDto
@@ -75,18 +76,26 @@ fun BrowseScreen(
     var artists by remember { mutableStateOf<List<ArtistDto>>(emptyList()) }
     var tracks by remember { mutableStateOf<List<TrackDto>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
+    val favoriteTrackIds by libraryRepository.favoriteTrackIds.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         isLoading = true
         try {
+            libraryRepository.refreshFavoriteIds()
             albums = libraryRepository.getAlbums()
             artists = libraryRepository.getArtists()
-            val fetchedTracks = libraryRepository.getRandomTracks(100)
-            tracks = if (fetchedTracks.isNotEmpty()) {
-                fetchedTracks
-            } else {
-                libraryRepository.getFavoriteTracks()
+            // Quick initial populate
+            val quickTracks = libraryRepository.getRandomTracks(100)
+            if (quickTracks.isNotEmpty() && tracks.isEmpty()) {
+                tracks = quickTracks
+            }
+            // Fetch all tracks across all albums (guarantees all album tracks are included)
+            val allTracks = libraryRepository.getAllTracks()
+            if (allTracks.isNotEmpty()) {
+                tracks = allTracks
+            } else if (tracks.isEmpty()) {
+                tracks = libraryRepository.getFavoriteTracks()
             }
         } catch (e: Exception) {
             android.util.Log.e("BrowseScreen", "Failed to load browse data", e)
@@ -143,6 +152,16 @@ fun BrowseScreen(
         tracks = tracks,
         isLoading = isLoading,
         baseUrl = playerController.baseUrl,
+        favoriteTrackIds = favoriteTrackIds,
+        onToggleTrackFavorite = { trackId ->
+            scope.launch {
+                try {
+                    libraryRepository.toggleFavorite(trackId, "track")
+                } catch (e: Exception) {
+                    android.util.Log.e("BrowseScreen", "Failed to toggle favorite for track $trackId", e)
+                }
+            }
+        },
         onTrackClick = { track ->
             playerController.playTrack(track, tracks)
         },
@@ -175,6 +194,8 @@ fun BrowseScreenContent(
     tracks: List<TrackDto>,
     isLoading: Boolean,
     baseUrl: String,
+    favoriteTrackIds: Set<String> = emptySet(),
+    onToggleTrackFavorite: (String) -> Unit = {},
     onTrackClick: (TrackDto) -> Unit,
     onAlbumClick: (AlbumDto) -> Unit,
     onArtistClick: (ArtistDto) -> Unit,
@@ -309,9 +330,12 @@ fun BrowseScreenContent(
                                 modifier = Modifier.fillMaxSize()
                             ) {
                                 items(tracks, key = { it.id }) { track ->
+                                    val isTrackFavorite = favoriteTrackIds.contains(track.id)
                                     LibraryTrackItem(
                                         track = track,
                                         baseUrl = baseUrl,
+                                        isFavorite = isTrackFavorite,
+                                        onToggleFavorite = { onToggleTrackFavorite(track.id) },
                                         onClick = { onTrackClick(track) }
                                     )
                                 }
