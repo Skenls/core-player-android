@@ -207,9 +207,12 @@ open class PlayerControllerManager(
         positionJob = coroutineScope.launch {
             while (isActive) {
                 val p = player
-                if (p != null && p.isPlaying) {
-                    val pos = p.currentPosition.coerceAtLeast(0L)
-                    val dur = if (p.duration > 0L) p.duration else _state.value.durationMs
+                val svc = PlaybackService.instance
+                val isPlaying = svc?.isPlaying ?: (p != null && p.isPlaying)
+                if (isPlaying) {
+                    val pos = (if (svc != null) svc.currentPosition else p?.currentPosition ?: 0L).coerceAtLeast(0L)
+                    val rawDur = if (svc != null && svc.duration > 0L) svc.duration else p?.duration ?: 0L
+                    val dur = if (rawDur > 0L) rawDur else _state.value.durationMs
                     _state.update { it.copy(currentPositionMs = pos, durationMs = dur) }
 
                     val isCrossfade = try { com.coreplayer.app.CorePlayerApp.instance.crossfadeEnabled } catch (_: Exception) { true }
@@ -371,6 +374,10 @@ open class PlayerControllerManager(
 
     fun seekTo(positionMs: Long) {
         val validPos = positionMs.coerceAtLeast(0L)
+        val svc = PlaybackService.instance
+        if (svc != null) {
+            svc.seekTo(validPos)
+        }
         player?.seekTo(validPos)
         _state.update { it.copy(currentPositionMs = validPos) }
     }

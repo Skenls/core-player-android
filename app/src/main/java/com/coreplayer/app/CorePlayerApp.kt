@@ -29,10 +29,30 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
     val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .cookieJar(cookieJar)
-            .connectTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
-            .writeTimeout(10, java.util.concurrent.TimeUnit.SECONDS)
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val path = request.url.encodedPath
+                if (path.contains("/api/stream/") && !path.contains("/cover/")) {
+                    val range = request.header("Range")
+                    val newRange = when {
+                        range == null -> "bytes=0-2147483647"
+                        range == "bytes=0-" -> "bytes=0-2147483647"
+                        range.endsWith("-") -> "${range}2147483647"
+                        else -> range
+                    }
+                    if (newRange != range) {
+                        chain.proceed(request.newBuilder().header("Range", newRange).build())
+                    } else {
+                        chain.proceed(request)
+                    }
+                } else {
+                    chain.proceed(request)
+                }
+            }
             .build()
     }
 

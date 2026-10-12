@@ -4,12 +4,14 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.annotation.OptIn
+import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.ContentMetadata
+import androidx.media3.datasource.cache.ContentMetadataMutations
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -233,6 +235,17 @@ class TrackCacheManager private constructor(
 
             Log.d(TAG, "Starting full pre-cache for: $streamUrl")
             writer.cache()
+            val totalBytes = cache.getCachedBytes(streamUrl, 0L, -1L)
+            if (totalBytes > 0) {
+                try {
+                    val mutations = ContentMetadataMutations()
+                    ContentMetadataMutations.setContentLength(mutations, totalBytes)
+                    cache.applyContentMetadataMutations(streamUrl, mutations)
+                    Log.d(TAG, "Applied ContentLength $totalBytes to cache metadata for: $streamUrl")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to apply ContentLength to cache metadata: ${e.message}")
+                }
+            }
             cachedUrls.add(streamUrl)
             Log.d(TAG, "Pre-cache completed for: $streamUrl")
             handle.dispose()

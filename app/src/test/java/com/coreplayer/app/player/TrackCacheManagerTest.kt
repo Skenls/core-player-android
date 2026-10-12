@@ -70,4 +70,46 @@ class TrackCacheManagerTest {
         assertNotNull(manager.cacheDir)
         assertNotNull(manager.upstreamFactory)
     }
+
+    @Test
+    fun audioStreamingInterceptor_addsBoundedRangeHeaders() {
+        var interceptedRange: String? = null
+        val testClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val path = request.url.encodedPath
+                if (path.contains("/api/stream/") && !path.contains("/cover/")) {
+                    val range = request.header("Range")
+                    val newRange = when {
+                        range == null -> "bytes=0-2147483647"
+                        range == "bytes=0-" -> "bytes=0-2147483647"
+                        range.endsWith("-") -> "${range}2147483647"
+                        else -> range
+                    }
+                    interceptedRange = newRange
+                }
+                okhttp3.Response.Builder()
+                    .request(request)
+                    .protocol(okhttp3.Protocol.HTTP_1_1)
+                    .code(206)
+                    .message("Partial Content")
+                    .body(okhttp3.ResponseBody.create(null, ByteArray(0)))
+                    .build()
+            }
+            .build()
+
+        val req1 = okhttp3.Request.Builder().url("http://example.com/api/stream/trk-1?format=opus").build()
+        testClient.newCall(req1).execute()
+        assertEquals("bytes=0-2147483647", interceptedRange)
+
+        val req2 = okhttp3.Request.Builder().url("http://example.com/api/stream/trk-1?format=mp3").header("Range", "bytes=1500000-").build()
+        testClient.newCall(req2).execute()
+        assertEquals("bytes=1500000-2147483647", interceptedRange)
+
+        interceptedRange = null
+        val req3 = okhttp3.Request.Builder().url("http://example.com/api/stream/cover/trk-1?size=512").build()
+        testClient.newCall(req3).execute()
+        assertEquals(null, interceptedRange)
+    }
 }
+

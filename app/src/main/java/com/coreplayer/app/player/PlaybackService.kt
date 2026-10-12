@@ -109,6 +109,26 @@ class PlaybackService : MediaSessionService() {
         return mediaSession
     }
 
+    fun seekTo(positionMs: Long) {
+        try {
+            if (::activePlayer.isInitialized) {
+                activePlayer.seekTo(positionMs)
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("PlaybackService", "seekTo failed: ${e.message}")
+        }
+    }
+
+    val currentPosition: Long
+        get() = try { if (::activePlayer.isInitialized) activePlayer.currentPosition else 0L } catch (_: Exception) { 0L }
+
+    val duration: Long
+        get() = try { if (::activePlayer.isInitialized) activePlayer.duration else 0L } catch (_: Exception) { 0L }
+
+    val isPlaying: Boolean
+        get() = try { if (::activePlayer.isInitialized) activePlayer.isPlaying else false } catch (_: Exception) { false }
+
+
     /**
      * Crossfades playback from the currently active player to the incoming media item.
      * The outgoing track's volume ramps down while the incoming track's volume ramps up,
