@@ -158,50 +158,260 @@ fun AlbumDetailSheet(
 
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
     ) {
-        Box(
+        androidx.compose.foundation.layout.BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .background(DarkBackground)
                 .statusBarsPadding()
+                .navigationBarsPadding()
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                // Top header bar
+            val isWideLayout = maxWidth > 650.dp && maxWidth > maxHeight
+
+            if (isWideLayout) {
+                // Wide / Tablet Landscape: Two-column layout
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
                 ) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = "Закрыть",
-                            tint = TextPrimary
+                    // Left Column: Album Info & Actions
+                    Column(
+                        modifier = Modifier
+                            .width(280.dp)
+                            .padding(end = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Start
+                        ) {
+                            IconButton(onClick = onDismiss) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = "Закрыть",
+                                    tint = TextPrimary
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(180.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(DarkSurfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = resolveCoverUrl(album.coverArt, baseUrl),
+                                contentDescription = album.name,
+                                contentScale = ContentScale.Crop,
+                                placeholder = rememberVectorPainter(Icons.Filled.MusicNote),
+                                error = rememberVectorPainter(Icons.Filled.MusicNote),
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Text(
+                            text = album.name,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = cleanedArtist.ifBlank { "Неизвестный исполнитель" },
+                            fontSize = 15.sp,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val metaText = buildString {
+                            if (album.songCount > 0) append("${album.songCount} треков")
+                            else if (tracks.isNotEmpty()) append("${tracks.size} треков")
+                            if (album.year != null && album.year > 0) {
+                                if (length > 0) append(" · ")
+                                append("${album.year}")
+                            }
+                        }
+                        if (metaText.isNotEmpty()) {
+                            Text(
+                                text = metaText,
+                                fontSize = 13.sp,
+                                color = TextSecondary.copy(alpha = 0.8f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        if (tracks.isNotEmpty()) {
+                            Button(
+                                onClick = {
+                                    if (isPlayingThisAlbum || isTrackFromThisAlbum) {
+                                        playerController.togglePlayPause()
+                                    } else {
+                                        onPlayAll()
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.White,
+                                    contentColor = Color.Black
+                                ),
+                                shape = CircleShape,
+                                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingThisAlbum) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.Black
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isPlayingThisAlbum) "Приостановить" else "Слушать",
+                                    color = Color.Black,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
                     }
 
-                    Text(
-                        text = "Альбом",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    )
+                    // Right Column: Tracklist
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize()
+                    ) {
+                        Text(
+                            text = "Треки",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
 
-                    Spacer(modifier = Modifier.size(48.dp))
+                        if (isLoading) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = Color.White)
+                            }
+                        } else if (tracks.isEmpty()) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text(text = "В альбоме нет треков", color = TextSecondary, fontSize = 15.sp)
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                contentPadding = PaddingValues(
+                                    bottom = if (playerState.currentTrack != null) 90.dp else 16.dp
+                                ),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                itemsIndexed(tracks, key = { index, t -> "${t.id}_$index" }) { index, track ->
+                                    val isThisTrackActive = currentTrack?.id == track.id
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .clickable {
+                                                if (isThisTrackActive) playerController.togglePlayPause()
+                                                else onPlayTrack(track, tracks)
+                                            }
+                                            .padding(vertical = 10.dp, horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "${index + 1}",
+                                            color = if (isThisTrackActive) AccentOrange else TextSecondary,
+                                            fontSize = 13.sp,
+                                            fontWeight = if (isThisTrackActive) FontWeight.Bold else FontWeight.Medium,
+                                            modifier = Modifier.width(28.dp)
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = track.title,
+                                                color = if (isThisTrackActive) AccentOrange else TextPrimary,
+                                                fontSize = 14.5.sp,
+                                                fontWeight = if (isThisTrackActive) FontWeight.Bold else FontWeight.Medium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            val trackArtist = cleanArtistName(track.artist)
+                                            if (trackArtist.isNotBlank() && trackArtist != cleanedArtist) {
+                                                Text(
+                                                    text = trackArtist,
+                                                    color = TextSecondary,
+                                                    fontSize = 12.sp,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = formatTime(track.duration * 1000L),
+                                            color = if (isThisTrackActive) AccentOrange else TextSecondary,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Album Header Card (Cover + Title + Artist)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+            } else {
+                // Portrait / Standard Layout
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
+                    // Top header bar
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Закрыть",
+                                tint = TextPrimary
+                            )
+                        }
+
+                        Text(
+                            text = "Альбом",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+
+                        Spacer(modifier = Modifier.size(48.dp))
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Album Header Card (Cover + Title + Artist)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     Box(
                         modifier = Modifier
                             .size(110.dp)
@@ -313,9 +523,11 @@ fun AlbumDetailSheet(
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                         contentPadding = PaddingValues(
-                            bottom = if (playerState.currentTrack != null) 100.dp else 24.dp
+                            bottom = if (playerState.currentTrack != null) 90.dp else 16.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
@@ -383,7 +595,6 @@ fun AlbumDetailSheet(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .navigationBarsPadding()
                         .padding(bottom = 8.dp)
                 ) {
                     FloatingMiniPlayer(
@@ -440,4 +651,5 @@ fun AlbumDetailSheet(
             }
         }
     }
+}
 }

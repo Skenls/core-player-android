@@ -49,8 +49,8 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         val renderersFactory = DefaultRenderersFactory(this)
-        val dataSourceFactory = OkHttpDataSource.Factory(CorePlayerApp.instance.okHttpClient)
-        val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(dataSourceFactory)
+        val cacheDataSourceFactory = TrackCacheManager.getInstance(this, CorePlayerApp.instance.okHttpClient).cacheDataSourceFactory
+        val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(cacheDataSourceFactory)
 
         primaryPlayer = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)

@@ -115,6 +115,18 @@ fun BrowseScreen(
         )
     }
 
+    var selectedArtistForDetail by remember { mutableStateOf<ArtistDto?>(null) }
+
+    selectedArtistForDetail?.let { artist ->
+        ArtistDetailSheet(
+            artist = artist,
+            baseUrl = playerController.baseUrl,
+            playerController = playerController,
+            libraryRepository = libraryRepository,
+            onDismiss = { selectedArtistForDetail = null }
+        )
+    }
+
     BrowseScreenContent(
         selectedTabIndex = selectedTab,
         onTabSelected = { selectedTab = it },
@@ -140,12 +152,7 @@ fun BrowseScreen(
             }
         },
         onArtistClick = { artist ->
-            scope.launch {
-                val artistTracks = libraryRepository.search(artist.name)
-                if (artistTracks.isNotEmpty()) {
-                    playerController.playTrack(artistTracks.first(), artistTracks)
-                }
-            }
+            selectedArtistForDetail = artist
         },
         modifier = modifier
     )
@@ -232,7 +239,7 @@ fun BrowseScreenContent(
                             )
                         } else {
                             LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
+                                columns = GridCells.Adaptive(minSize = 160.dp),
                                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -243,7 +250,7 @@ fun BrowseScreenContent(
                                         title = album.name,
                                         subtitle = album.artist ?: "",
                                         coverUrl = resolveCoverUrl(album.coverArt, baseUrl),
-                                        cardSize = 160.dp,
+                                        cardSize = 0.dp,
                                         showPlayButton = false,
                                         onClick = { onAlbumClick(album) }
                                     )
@@ -261,7 +268,7 @@ fun BrowseScreenContent(
                             )
                         } else {
                             LazyVerticalGrid(
-                                columns = GridCells.Fixed(2),
+                                columns = GridCells.Adaptive(minSize = 150.dp),
                                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -272,6 +279,7 @@ fun BrowseScreenContent(
                                         name = artist.name,
                                         imageUrl = resolveArtistImageUrl(artist, baseUrl),
                                         subtitle = "Артист",
+                                        cardSize = 0.dp,
                                         onClick = { onArtistClick(artist) }
                                     )
                                 }

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
@@ -66,14 +68,14 @@ fun ArtistCard(
 
     Column(
         modifier = modifier
-            .width(cardSize)
+            .let { if (cardSize > 0.dp) it.width(cardSize) else it.fillMaxWidth() }
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.Start
     ) {
         Box(
             modifier = Modifier
-                .size(cardSize)
+                .let { if (cardSize > 0.dp) it.size(cardSize) else it.fillMaxWidth().aspectRatio(1f) }
                 .clip(cornerShape)
                 .background(fallbackGradient),
             contentAlignment = Alignment.Center

@@ -122,10 +122,22 @@ fun HomeScreen(
         )
     }
 
+    var selectedArtistForDetail by remember { mutableStateOf<com.coreplayer.app.data.model.ArtistDto?>(null) }
+
+    selectedArtistForDetail?.let { artist ->
+        com.coreplayer.app.ui.screens.browse.ArtistDetailSheet(
+            artist = artist,
+            baseUrl = playerController.baseUrl,
+            playerController = playerController,
+            libraryRepository = libraryRepository,
+            onDismiss = { selectedArtistForDetail = null }
+        )
+    }
+
     HomeScreenContent(
         uiState = uiState,
         baseUrl = playerController.baseUrl,
-        onArtistClick = { viewModel.playArtist(it) },
+        onArtistClick = { selectedArtistForDetail = it },
         onTrackClick = { viewModel.playRecentTrack(it) },
         onFavoritesClick = { viewModel.playFavorites() },
         onFavoritesHeaderClick = onNavigateToFavorites,
@@ -350,28 +362,35 @@ fun HomeScreenContent(
                         modifier = Modifier.padding(horizontal = 20.dp)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                    Column(
+                    androidx.compose.foundation.layout.BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(horizontal = 20.dp)
                     ) {
-                        uiState.recentTracks.chunked(2).forEach { rowTracks ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                for (track in rowTracks) {
-                                    Box(modifier = Modifier.weight(1f)) {
-                                        RecentTrackCard(
-                                            track = track,
-                                            baseUrl = baseUrl,
-                                            onClick = { onTrackClick(track) }
-                                        )
+                        val chunkSize = if (maxWidth > 650.dp) 4 else 2
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            uiState.recentTracks.chunked(chunkSize).forEach { rowTracks ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    for (track in rowTracks) {
+                                        Box(modifier = Modifier.weight(1f)) {
+                                            RecentTrackCard(
+                                                track = track,
+                                                baseUrl = baseUrl,
+                                                onClick = { onTrackClick(track) }
+                                            )
+                                        }
                                     }
-                                }
-                                if (rowTracks.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
+                                    if (rowTracks.size < chunkSize) {
+                                        for (i in 0 until (chunkSize - rowTracks.size)) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
                                 }
                             }
                         }

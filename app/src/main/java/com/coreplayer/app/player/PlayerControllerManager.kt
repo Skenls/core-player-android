@@ -48,10 +48,22 @@ open class PlayerControllerManager(
                     durationMs = if (trackDurationMs > 0L) trackDurationMs else it.durationMs
                 )
             }
+            if (track != null) {
+                val next = getNextTrackInQueue()
+                val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
+                try {
+                    TrackCacheManager.getInstance(context, com.coreplayer.app.CorePlayerApp.instance.okHttpClient)
+                        .onTrackStarted(track, currentQueue, baseUrl, codec, next)
+                } catch (_: Exception) {}
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _state.update { it.copy(isPlaying = isPlaying) }
+            try {
+                TrackCacheManager.getInstance(context, com.coreplayer.app.CorePlayerApp.instance.okHttpClient)
+                    .onPlaybackState(isPlaying)
+            } catch (_: Exception) {}
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -68,8 +80,11 @@ open class PlayerControllerManager(
                 val isRepeatOne = (player?.repeatMode == Player.REPEAT_MODE_ONE) || _state.value.repeatMode == RepeatMode.ONE
                 val isRepeatAll = (player?.repeatMode == Player.REPEAT_MODE_ALL) || _state.value.repeatMode == RepeatMode.ALL
                 if (isRepeatOne) {
-                    player?.seekTo(0, 0L)
-                    player?.play()
+                    val p = player
+                    val curIdx = p?.currentMediaItemIndex?.takeIf { it >= 0 }
+                        ?: currentQueue.indexOfFirst { it.id == _state.value.currentTrack?.id }.coerceAtLeast(0)
+                    p?.seekTo(curIdx, 0L)
+                    p?.play()
                 } else {
                     val nextTrack = getNextTrackInQueue()
                     val nextIndex = if (nextTrack != null) currentQueue.indexOfFirst { it.id == nextTrack.id } else -1
@@ -199,23 +214,44 @@ open class PlayerControllerManager(
 
                     val isCrossfade = try { com.coreplayer.app.CorePlayerApp.instance.crossfadeEnabled } catch (_: Exception) { true }
                     if (isCrossfade && dur > 12000L && pos >= dur - 4000L && !isCrossfading) {
-                        val next = getNextTrackInQueue()
-                        val svc = PlaybackService.instance
-                        if (next != null && svc != null) {
-                            isCrossfading = true
-                            val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
-                            val nextIndex = currentQueue.indexOfFirst { it.id == next.id }.coerceAtLeast(0)
-                            val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, codec) }
-                            _state.update {
-                                it.copy(
-                                    currentTrack = next,
-                                    currentPositionMs = 0L,
-                                    durationMs = (next.duration * 1000L).coerceAtLeast(0L),
-                                    isPlaying = true
-                                )
+                        val isRepeatOne = (player?.repeatMode == Player.REPEAT_MODE_ONE) || _state.value.repeatMode == RepeatMode.ONE
+                        if (isRepeatOne) {
+                            val cur = _state.value.currentTrack
+                            val svc = PlaybackService.instance
+                            if (cur != null && svc != null) {
+                                isCrossfading = true
+                                val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
+                                val curIndex = currentQueue.indexOfFirst { it.id == cur.id }.coerceAtLeast(0)
+                                val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, codec) }
+                                _state.update {
+                                    it.copy(
+                                        currentPositionMs = 0L,
+                                        isPlaying = true
+                                    )
+                                }
+                                svc.crossfadeTo(mediaItems, curIndex, 3500L) {
+                                    isCrossfading = false
+                                }
                             }
-                            svc.crossfadeTo(mediaItems, nextIndex, 3500L) {
-                                isCrossfading = false
+                        } else {
+                            val next = getNextTrackInQueue()
+                            val svc = PlaybackService.instance
+                            if (next != null && svc != null) {
+                                isCrossfading = true
+                                val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
+                                val nextIndex = currentQueue.indexOfFirst { it.id == next.id }.coerceAtLeast(0)
+                                val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, codec) }
+                                _state.update {
+                                    it.copy(
+                                        currentTrack = next,
+                                        currentPositionMs = 0L,
+                                        durationMs = (next.duration * 1000L).coerceAtLeast(0L),
+                                        isPlaying = true
+                                    )
+                                }
+                                svc.crossfadeTo(mediaItems, nextIndex, 3500L) {
+                                    isCrossfading = false
+                                }
                             }
                         }
                     }
@@ -252,10 +288,23 @@ open class PlayerControllerManager(
             val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, codec) }
 
             player?.run {
+                val currentRepeat = when (_state.value.repeatMode) {
+                    RepeatMode.ALL -> Player.REPEAT_MODE_ALL
+                    RepeatMode.ONE -> Player.REPEAT_MODE_ONE
+                    RepeatMode.OFF -> Player.REPEAT_MODE_OFF
+                }
+                repeatMode = currentRepeat
+                shuffleModeEnabled = _state.value.shuffleModeEnabled
                 setMediaItems(mediaItems, startIndex, 0L)
                 prepare()
                 play()
             }
+
+            try {
+                val next = getNextTrackInQueue()
+                TrackCacheManager.getInstance(context, com.coreplayer.app.CorePlayerApp.instance.okHttpClient)
+                    .onTrackStarted(track, currentQueue, baseUrl, codec, next)
+            } catch (_: Exception) {}
         }
 
         if (player != null) {
@@ -283,6 +332,12 @@ open class PlayerControllerManager(
         if (isPlaying) {
             p.play()
         }
+
+        try {
+            val next = getNextTrackInQueue()
+            TrackCacheManager.getInstance(context, com.coreplayer.app.CorePlayerApp.instance.okHttpClient)
+                .onTrackStarted(currentTrack, currentQueue, baseUrl, newCodec, next)
+        } catch (_: Exception) {}
     }
 
     fun togglePlayPause() {

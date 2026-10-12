@@ -458,7 +458,7 @@ fun LibraryScreenContent(
                                 }
                             } else {
                                 LazyVerticalGrid(
-                                    columns = GridCells.Fixed(2),
+                                    columns = GridCells.Adaptive(minSize = 160.dp),
                                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                     verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -469,7 +469,7 @@ fun LibraryScreenContent(
                                         PlaylistCard(
                                             playlist = playlist,
                                             coverUrl = resolveCoverUrl(resolvedArt, baseUrl),
-                                            cardSize = 160.dp,
+                                            cardSize = 0.dp,
                                             onClick = { onPlaylistClick(playlist) },
                                             onPlayClick = { onPlaylistClick(playlist) }
                                         )
