@@ -9,6 +9,7 @@ import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.CacheWriter
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.okhttp.OkHttpDataSource
@@ -19,6 +20,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -32,6 +34,8 @@ import java.io.File
  * 2. Once current track completes, pre-caches the next track in queue completely.
  * 3. On skipping forward, keeps the previous track cached until the next skip.
  * 4. Evicts cache on album switches, jumps to uncached tracks, or after an idle timeout.
+ * 5. Uses a dedicated download data source and cancels in-flight downloads cleanly to prevent
+ *    thread contention and server 502 errors.
  */
 @OptIn(UnstableApi::class)
 class TrackCacheManager private constructor(
@@ -50,7 +54,29 @@ class TrackCacheManager private constructor(
 
     val upstreamFactory = OkHttpDataSource.Factory(okHttpClient)
 
-    val cacheDataSourceFactory: CacheDataSource.Factory by lazy {
+    /**
+     * Playback data source factory for ExoPlayer:
+     * Reads directly from SimpleCache when cached; falls back to upstream OkHttp when not.
+     * Disables write sink (null) so ExoPlayer playback never conflicts with background CacheWriter.
+     */
+    val playbackDataSourceFactory: CacheDataSource.Factory by lazy {
+        CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setCacheWriteDataSinkFactory(null)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+    }
+
+    /**
+     * Backward-compatible alias for playback data source.
+     */
+    val cacheDataSourceFactory: CacheDataSource.Factory
+        get() = playbackDataSourceFactory
+
+    /**
+     * Dedicated data source factory for background CacheWriter pre-caching.
+     */
+    val downloadDataSourceFactory: CacheDataSource.Factory by lazy {
         CacheDataSource.Factory()
             .setCache(cache)
             .setUpstreamDataSourceFactory(upstreamFactory)
@@ -59,11 +85,20 @@ class TrackCacheManager private constructor(
 
     private var cachingJob: Job? = null
     private var idleTimeoutJob: Job? = null
+    @Volatile
+    private var currentWriter: CacheWriter? = null
 
+    @Volatile
     private var activeTrackId: String? = null
+    @Volatile
+    private var activeCodec: String? = null
+    @Volatile
+    private var activeNextTrackId: String? = null
+    @Volatile
     private var activeAlbumId: String? = null
+    @Volatile
     private var previousTrackId: String? = null
-    private var cachedUrls = mutableSetOf<String>()
+    private val cachedUrls = mutableSetOf<String>()
 
     /**
      * Resolves the stream URI for a track with the given baseUrl and codec.
@@ -91,6 +126,15 @@ class TrackCacheManager private constructor(
         nextTrack: TrackDto?
     ) {
         cancelIdleTimer()
+
+        // De-duplicate: If already caching this track with this codec, do not cancel & restart!
+        if (currentTrack.id == activeTrackId &&
+            codec == activeCodec &&
+            nextTrack?.id == activeNextTrackId &&
+            cachingJob?.isActive == true
+        ) {
+            return
+        }
 
         val trackAlbum = currentTrack.albumId ?: currentTrack.album
 
@@ -121,9 +165,17 @@ class TrackCacheManager private constructor(
             previousTrackId = activeTrackId
         }
         activeTrackId = currentTrack.id
+        activeCodec = codec
+        activeNextTrackId = nextTrack?.id
+
+        // Cancel existing writer and job immediately
+        cachingJob?.cancel()
+        try {
+            currentWriter?.cancel()
+        } catch (_: Exception) {}
+        currentWriter = null
 
         // Start two-stage background caching pipeline
-        cachingJob?.cancel()
         cachingJob = scope.launch {
             try {
                 // Stage 1: Pre-cache current track completely
@@ -145,19 +197,52 @@ class TrackCacheManager private constructor(
 
     private suspend fun cacheTrack(streamUrl: String) = withContext(Dispatchers.IO) {
         if (!isActive) return@withContext
+
+        // Check if already fully cached in SimpleCache
+        val isAlreadyCached = try {
+            val meta = cache.getContentMetadata(streamUrl)
+            val contentLength = ContentMetadata.getContentLength(meta)
+            contentLength > 0 && cache.isCached(streamUrl, 0, contentLength)
+        } catch (_: Exception) { false }
+
+        if (isAlreadyCached) {
+            Log.d(TAG, "Track already fully cached: $streamUrl")
+            cachedUrls.add(streamUrl)
+            return@withContext
+        }
+
+        var writer: CacheWriter? = null
         try {
             val uri = Uri.parse(streamUrl)
             val dataSpec = DataSpec(uri)
-            val downloadingDataSource = cacheDataSourceFactory.createDataSourceForDownloading()
-            val writer = CacheWriter(downloadingDataSource, dataSpec, null, null)
+            val downloadingDataSource = downloadDataSourceFactory.createDataSourceForDownloading()
+            // High-throughput 256 KB buffer for fast streaming
+            val tempBuffer = ByteArray(256 * 1024)
+            writer = CacheWriter(downloadingDataSource, dataSpec, tempBuffer, null)
+            currentWriter = writer
+
+            // Attach cancellation listener so writer terminates immediately when coroutine cancels
+            val job = coroutineContext.job
+            val handle = job.invokeOnCompletion { cause ->
+                if (cause != null) {
+                    try {
+                        writer.cancel()
+                    } catch (_: Exception) {}
+                }
+            }
 
             Log.d(TAG, "Starting full pre-cache for: $streamUrl")
             writer.cache()
             cachedUrls.add(streamUrl)
             Log.d(TAG, "Pre-cache completed for: $streamUrl")
+            handle.dispose()
         } catch (e: Exception) {
-            if (e !is kotlinx.coroutines.CancellationException) {
+            if (e !is kotlinx.coroutines.CancellationException && !e.javaClass.name.contains("Interrupted")) {
                 Log.w(TAG, "Error caching $streamUrl: ${e.message}")
+            }
+        } finally {
+            if (currentWriter === writer) {
+                currentWriter = null
             }
         }
     }
@@ -199,7 +284,7 @@ class TrackCacheManager private constructor(
         idleTimeoutJob = scope.launch {
             delay(IDLE_TIMEOUT_MS)
             if (isActive) {
-                Log.d(TAG, "Playback idle timeout expired (${IDLE_TIMEOUT_MS / 60000}m). Evicting cache.")
+                Log.d(TAG, "Idle timeout reached. Clearing track cache.")
                 clearAll()
             }
         }
@@ -214,10 +299,18 @@ class TrackCacheManager private constructor(
     fun clearAll() {
         cachingJob?.cancel()
         cachingJob = null
+        try {
+            currentWriter?.cancel()
+        } catch (_: Exception) {}
+        currentWriter = null
         clearAllInternal()
     }
 
     private fun clearAllInternal() {
+        try {
+            currentWriter?.cancel()
+        } catch (_: Exception) {}
+        currentWriter = null
         scope.launch {
             try {
                 for (key in cache.keys) {
@@ -227,6 +320,8 @@ class TrackCacheManager private constructor(
                 }
                 cachedUrls.clear()
                 activeTrackId = null
+                activeCodec = null
+                activeNextTrackId = null
                 activeAlbumId = null
                 previousTrackId = null
                 Log.d(TAG, "Cleared all cached tracks.")

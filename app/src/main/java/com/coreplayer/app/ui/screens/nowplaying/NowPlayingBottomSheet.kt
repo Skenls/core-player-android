@@ -54,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -639,39 +640,49 @@ private fun NowPlayingScrubber(
     onDragUpdate: (Float) -> Unit,
     onDragEnd: () -> Unit
 ) {
+    val currentDurationMs by rememberUpdatedState(durationMs)
+    val currentSeekPositionMs by rememberUpdatedState(seekPositionMs)
+    val currentOnSeekTo by rememberUpdatedState(onSeekTo)
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDragUpdate by rememberUpdatedState(onDragUpdate)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+
     Column(modifier = Modifier.fillMaxWidth()) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(30.dp)
-                .pointerInput(durationMs) {
+                .pointerInput(Unit) {
                     detectTapGestures { offset ->
-                        if (durationMs > 0) {
+                        val dur = currentDurationMs
+                        if (dur > 0) {
                             val fraction = (offset.x / size.width).coerceIn(0f, 1f)
-                            val targetMs = (fraction * durationMs).toLong()
-                            onSeekTo(targetMs)
+                            val targetMs = (fraction * dur).toLong()
+                            currentOnSeekTo(targetMs)
                         }
                     }
                 }
-                .pointerInput(durationMs) {
+                .pointerInput(Unit) {
                     detectHorizontalDragGestures(
                         onDragStart = { offset ->
-                            if (durationMs > 0) {
+                            val dur = currentDurationMs
+                            if (dur > 0) {
                                 val fraction = (offset.x / size.width).coerceIn(0f, 1f)
-                                onDragStart(fraction * durationMs)
+                                currentOnDragStart(fraction * dur)
                             }
                         },
                         onDragEnd = {
-                            onSeekTo(seekPositionMs.toLong())
-                            onDragEnd()
+                            currentOnSeekTo(currentSeekPositionMs.toLong())
+                            currentOnDragEnd()
                         },
-                        onDragCancel = onDragEnd,
+                        onDragCancel = { currentOnDragEnd() },
                         onHorizontalDrag = { _, dragAmount ->
-                            if (durationMs > 0) {
+                            val dur = currentDurationMs
+                            if (dur > 0) {
                                 val deltaFraction = dragAmount / size.width
-                                val currentFraction = (seekPositionMs / durationMs).coerceIn(0f, 1f)
+                                val currentFraction = (currentSeekPositionMs / dur).coerceIn(0f, 1f)
                                 val newFraction = (currentFraction + deltaFraction).coerceIn(0f, 1f)
-                                onDragUpdate(newFraction * durationMs)
+                                currentOnDragUpdate(newFraction * dur)
                             }
                         }
                     )

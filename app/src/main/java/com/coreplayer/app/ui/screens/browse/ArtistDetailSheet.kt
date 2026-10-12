@@ -69,6 +69,7 @@ import com.coreplayer.app.ui.theme.TextSecondary
 import com.coreplayer.app.ui.util.cleanArtistName
 import com.coreplayer.app.ui.util.resolveArtistImageUrl
 import com.coreplayer.app.ui.util.resolveCoverUrl
+import com.coreplayer.app.ui.util.responsiveGridColumns
 import kotlinx.coroutines.launch
 
 /**
@@ -274,7 +275,7 @@ fun ArtistDetailSheet(
                     }
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 160.dp),
+                        columns = responsiveGridColumns(minCardWidth = 150.dp),
                         contentPadding = PaddingValues(
                             bottom = if (playerState.currentTrack != null) 90.dp else 16.dp
                         ),

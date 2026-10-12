@@ -70,6 +70,7 @@ import com.coreplayer.app.ui.theme.SectionTitleStyle
 import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
 import com.coreplayer.app.ui.util.resolveCoverUrl
+import com.coreplayer.app.ui.util.responsiveGridColumns
 import kotlinx.coroutines.launch
 
 enum class LibraryTab(val title: String) {
@@ -458,7 +459,7 @@ fun LibraryScreenContent(
                                 }
                             } else {
                                 LazyVerticalGrid(
-                                    columns = GridCells.Adaptive(minSize = 160.dp),
+                                    columns = responsiveGridColumns(minCardWidth = 150.dp),
                                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                                     verticalArrangement = Arrangement.spacedBy(16.dp),

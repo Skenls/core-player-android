@@ -44,7 +44,7 @@ open class PlayerControllerManager(
             _state.update {
                 it.copy(
                     currentTrack = track ?: it.currentTrack,
-                    currentPositionMs = 0L,
+                    currentPositionMs = if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) it.currentPositionMs else 0L,
                     durationMs = if (trackDurationMs > 0L) trackDurationMs else it.durationMs
                 )
             }
@@ -326,6 +326,14 @@ open class PlayerControllerManager(
 
         val startIndex = currentQueue.indexOfFirst { it.id == currentTrack.id }.coerceAtLeast(0)
         val mediaItems = currentQueue.map { it.toMediaItem(baseUrl, newCodec) }
+
+        val trackDurationMs = (currentTrack.duration.toLong() * 1000L).coerceAtLeast(0L)
+        _state.update {
+            it.copy(
+                currentPositionMs = currentPos,
+                durationMs = if (trackDurationMs > 0L) trackDurationMs else it.durationMs
+            )
+        }
 
         p.setMediaItems(mediaItems, startIndex, currentPos)
         p.prepare()

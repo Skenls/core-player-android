@@ -10,6 +10,9 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.mp3.Mp3Extractor
+import androidx.media3.extractor.ts.AdtsExtractor
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.coreplayer.app.CorePlayerApp
@@ -49,8 +52,22 @@ class PlaybackService : MediaSessionService() {
             .build()
 
         val renderersFactory = DefaultRenderersFactory(this)
-        val cacheDataSourceFactory = TrackCacheManager.getInstance(this, CorePlayerApp.instance.okHttpClient).cacheDataSourceFactory
-        val mediaSourceFactory = DefaultMediaSourceFactory(this).setDataSourceFactory(cacheDataSourceFactory)
+
+        val extractorsFactory = DefaultExtractorsFactory()
+            .setConstantBitrateSeekingEnabled(true)
+            .setConstantBitrateSeekingAlwaysEnabled(true)
+            .setMp3ExtractorFlags(
+                Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING or
+                Mp3Extractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS or
+                Mp3Extractor.FLAG_ENABLE_INDEX_SEEKING
+            )
+            .setAdtsExtractorFlags(
+                AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING or
+                AdtsExtractor.FLAG_ENABLE_CONSTANT_BITRATE_SEEKING_ALWAYS
+            )
+
+        val playbackDataSourceFactory = TrackCacheManager.getInstance(this, CorePlayerApp.instance.okHttpClient).playbackDataSourceFactory
+        val mediaSourceFactory = DefaultMediaSourceFactory(this, extractorsFactory).setDataSourceFactory(playbackDataSourceFactory)
 
         primaryPlayer = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)

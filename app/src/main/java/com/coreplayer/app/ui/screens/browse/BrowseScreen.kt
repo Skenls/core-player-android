@@ -51,6 +51,7 @@ import com.coreplayer.app.ui.theme.DarkBackground
 import com.coreplayer.app.ui.theme.SectionTitleStyle
 import com.coreplayer.app.ui.theme.TextPrimary
 import com.coreplayer.app.ui.theme.TextSecondary
+import com.coreplayer.app.ui.util.responsiveGridColumns
 import kotlinx.coroutines.launch
 
 enum class BrowseTab(val title: String) {
@@ -239,7 +240,7 @@ fun BrowseScreenContent(
                             )
                         } else {
                             LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = 160.dp),
+                                columns = responsiveGridColumns(minCardWidth = 150.dp),
                                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -268,7 +269,7 @@ fun BrowseScreenContent(
                             )
                         } else {
                             LazyVerticalGrid(
-                                columns = GridCells.Adaptive(minSize = 150.dp),
+                                columns = responsiveGridColumns(minCardWidth = 140.dp),
                                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
