@@ -176,8 +176,15 @@ class RepositoryTest {
             )
         }
 
-        override suspend fun getAlbums(type: String?, size: Int?): List<AlbumDto> {
+        override suspend fun getAlbums(all: Boolean?, type: String?, size: Int?, offset: Int?): List<AlbumDto> {
             return listOf(AlbumDto(id = "alb-1", name = "OK Computer", artist = "Radiohead", songCount = 12))
+        }
+
+        override suspend fun getTracks(all: Boolean?, size: Int?, offset: Int?): List<TrackDto> {
+            return listOf(
+                TrackDto(id = "trk-album-1", title = "Airbag", artist = "Radiohead", duration = 284),
+                TrackDto(id = "trk-rnd-1", title = "Lucky", artist = "Radiohead", duration = 259)
+            )
         }
 
         override suspend fun getPlaylists(): List<PlaylistDto> {

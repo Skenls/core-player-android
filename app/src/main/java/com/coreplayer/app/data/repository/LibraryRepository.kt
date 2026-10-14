@@ -72,11 +72,23 @@ class LibraryRepository(
         }
     }
 
-    suspend fun getAlbums(type: String? = null, size: Int? = 500): List<AlbumDto> =
-        api.getAlbums(type = type, size = size).map {
+    suspend fun getAlbums(
+        all: Boolean? = true,
+        type: String? = null,
+        size: Int? = null,
+        offset: Int? = null
+    ): List<AlbumDto> =
+        api.getAlbums(all = all, type = type, size = size, offset = offset).map {
             val cleaned = com.coreplayer.app.ui.util.cleanArtistName(it.artist)
             if (cleaned != it.artist) it.copy(artist = cleaned) else it
         }
+
+    suspend fun getTracks(
+        all: Boolean? = true,
+        size: Int? = null,
+        offset: Int? = null
+    ): List<TrackDto> =
+        api.getTracks(all = all, size = size, offset = offset).map { cleanTrack(it) }
 
     suspend fun getAlbumTracks(albumId: String): List<TrackDto> {
         return try {
@@ -183,46 +195,52 @@ class LibraryRepository(
     }
 
     /**
-     * Fetches all albums across the user's library by combining alphabetical and newest listings,
-     * ensuring full coverage without being cut off by the backend default 50-item limit.
+     * Fetches all albums across the user's library using the updated /api/library/albums?all=true endpoint.
      */
     suspend fun getAllAlbums(forceRefresh: Boolean = false): List<AlbumDto> {
         if (!forceRefresh && !cachedAllAlbums.isNullOrEmpty()) {
             return cachedAllAlbums!!
         }
         return try {
-            coroutineScope {
-                val alphaDeferred = async { getAlbums(type = "alphabeticalByName", size = 500) }
-                val newestDeferred = async { getAlbums(type = "newest", size = 500) }
-
-                val alpha = alphaDeferred.await()
-                val newest = newestDeferred.await()
-
-                val combined = (alpha + newest).distinctBy { it.id }
-                if (combined.isNotEmpty()) {
-                    cachedAllAlbums = combined
-                    combined
-                } else {
-                    getAlbums(size = 500)
-                }
+            val albums = getAlbums(all = true, type = "alphabeticalByName")
+            if (albums.isNotEmpty()) {
+                cachedAllAlbums = albums
+                albums
+            } else {
+                getAlbums(all = false, size = 500)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to fetch all albums, falling back to basic getAlbums", e)
-            getAlbums(size = 500)
+            Log.e(TAG, "Failed to fetch all albums via api/library/albums?all=true, falling back", e)
+            getAlbums(all = false, size = 500)
         }
     }
 
     /**
-     * Fetches all tracks across the user's library by aggregating album tracks and random tracks.
-     * Guarantees that every track in every album is included without omissions.
+     * Fetches all tracks across the user's library using the updated /api/library/tracks?all=true endpoint.
+     * Fast, single-request retrieval with legacy fallback.
      */
     suspend fun getAllTracks(forceRefresh: Boolean = false): List<TrackDto> {
         if (!forceRefresh && !cachedAllTracks.isNullOrEmpty()) {
             return cachedAllTracks!!
         }
         return try {
+            val tracks = getTracks(all = true)
+            if (tracks.isNotEmpty()) {
+                cachedAllTracks = tracks
+                tracks
+            } else {
+                fallbackGetAllTracks()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch all tracks via api/library/tracks, falling back to legacy aggregation", e)
+            fallbackGetAllTracks()
+        }
+    }
+
+    private suspend fun fallbackGetAllTracks(): List<TrackDto> {
+        return try {
             coroutineScope {
-                val albumsDeferred = async { getAlbums(size = 500) }
+                val albumsDeferred = async { getAlbums(all = true, size = 500) }
                 val randomDeferred = async { getRandomTracks(500) }
 
                 val albums = albumsDeferred.await()
@@ -233,9 +251,7 @@ class LibraryRepository(
                 }
                 val albumTracks = albumTracksDeferred.awaitAll().flatten()
 
-                val combined = (albumTracks + randomTracks)
-                    .distinctBy { it.id }
-
+                val combined = (albumTracks + randomTracks).distinctBy { it.id }
                 if (combined.isNotEmpty()) {
                     cachedAllTracks = combined
                     combined
@@ -244,7 +260,7 @@ class LibraryRepository(
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to fetch all tracks, falling back to random", e)
+            Log.e(TAG, "Fallback getAllTracks failed, returning random", e)
             getRandomTracks(500)
         }
     }

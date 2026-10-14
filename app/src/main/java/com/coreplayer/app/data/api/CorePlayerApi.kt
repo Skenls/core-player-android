@@ -57,9 +57,18 @@ interface CorePlayerApi {
 
     @GET("api/library/albums")
     suspend fun getAlbums(
+        @Query("all") all: Boolean? = true,
         @Query("type") type: String? = null,
-        @Query("size") size: Int? = null
+        @Query("size") size: Int? = null,
+        @Query("offset") offset: Int? = null
     ): List<AlbumDto>
+
+    @GET("api/library/tracks")
+    suspend fun getTracks(
+        @Query("all") all: Boolean? = true,
+        @Query("size") size: Int? = null,
+        @Query("offset") offset: Int? = null
+    ): List<TrackDto>
 
     @GET("api/library/albums/{album_id}")
     suspend fun getAlbum(
