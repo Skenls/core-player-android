@@ -104,6 +104,21 @@ class RepositoryTest {
     }
 
     @Test
+    fun libraryRepository_getAllAlbums_fetchesAndCachesAlbums() = runTest {
+        val albums = libraryRepository.getAllAlbums()
+        assertEquals(1, albums.size)
+        assertEquals("alb-1", albums[0].id)
+        assertEquals("OK Computer", albums[0].name)
+    }
+
+    @Test
+    fun libraryRepository_getArtistAlbums_fetchesArtistAlbums() = runTest {
+        val albums = libraryRepository.getArtistAlbums("art-1")
+        assertEquals(1, albums.size)
+        assertEquals("alb-1", albums[0].id)
+    }
+
+    @Test
     fun lyricsRepository_getLyrics_parsesLrcLines() = runTest {
         val lyrics = lyricsRepository.getLyrics("trk-1")
 
@@ -149,6 +164,16 @@ class RepositoryTest {
 
         override suspend fun getArtists(): List<ArtistDto> {
             return listOf(ArtistDto(id = "art-1", name = "Radiohead", albumCount = 9))
+        }
+
+        override suspend fun getArtist(artistId: String): com.coreplayer.app.data.model.ArtistDetailResponse {
+            return com.coreplayer.app.data.model.ArtistDetailResponse(
+                artist = com.coreplayer.app.data.model.ArtistWithAlbumsDto(
+                    id = artistId,
+                    name = "Radiohead",
+                    album = listOf(AlbumDto(id = "alb-1", name = "OK Computer", artist = "Radiohead", songCount = 12))
+                )
+            )
         }
 
         override suspend fun getAlbums(type: String?, size: Int?): List<AlbumDto> {

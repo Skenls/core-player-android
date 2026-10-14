@@ -95,14 +95,23 @@ class PlaybackService : MediaSessionService() {
                 )
             }
 
+        val coilBitmapLoader = CoilBitmapLoader(this, coil.Coil.imageLoader(this))
         val sessionBuilder = MediaSession.Builder(this, activePlayer)
             .setCallback(MediaSessionCallback())
+            .setBitmapLoader(androidx.media3.session.CacheBitmapLoader(coilBitmapLoader))
 
         if (sessionActivityPendingIntent != null) {
             sessionBuilder.setSessionActivity(sessionActivityPendingIntent)
         }
 
         mediaSession = sessionBuilder.build()
+
+        val notificationProvider = androidx.media3.session.DefaultMediaNotificationProvider.Builder(this)
+            .build()
+            .apply {
+                setSmallIcon(com.coreplayer.app.R.mipmap.ic_launcher)
+            }
+        setMediaNotificationProvider(notificationProvider)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {

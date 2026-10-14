@@ -33,6 +33,7 @@ class LibraryRepository(
     val playlistsChanged: SharedFlow<Unit> = _playlistsChanged.asSharedFlow()
 
     private var cachedAllTracks: List<TrackDto>? = null
+    private var cachedAllAlbums: List<AlbumDto>? = null
 
     fun notifyFavoritesChanged() {
         _favoritesChanged.tryEmit(Unit)
@@ -50,7 +51,28 @@ class LibraryRepository(
     suspend fun getArtists(): List<ArtistDto> =
         api.getArtists().filterNot { com.coreplayer.app.ui.util.isFio(it.name) }
 
-    suspend fun getAlbums(type: String? = null, size: Int? = null): List<AlbumDto> =
+    suspend fun getArtistAlbums(artistId: String): List<AlbumDto> {
+        return try {
+            val res = api.getArtist(artistId)
+            val albums = res.artist.album.map {
+                val cleaned = com.coreplayer.app.ui.util.cleanArtistName(it.artist)
+                if (cleaned != it.artist) it.copy(artist = cleaned) else it
+            }
+            if (albums.isNotEmpty() && cachedAllAlbums != null) {
+                val existingIds = cachedAllAlbums!!.map { it.id }.toSet()
+                val newOnes = albums.filter { it.id !in existingIds }
+                if (newOnes.isNotEmpty()) {
+                    cachedAllAlbums = cachedAllAlbums!! + newOnes
+                }
+            }
+            albums
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get artist albums for $artistId", e)
+            emptyList()
+        }
+    }
+
+    suspend fun getAlbums(type: String? = null, size: Int? = 500): List<AlbumDto> =
         api.getAlbums(type = type, size = size).map {
             val cleaned = com.coreplayer.app.ui.util.cleanArtistName(it.artist)
             if (cleaned != it.artist) it.copy(artist = cleaned) else it
@@ -156,7 +178,38 @@ class LibraryRepository(
 
     fun clearAllCaches() {
         cachedAllTracks = null
+        cachedAllAlbums = null
         _favoriteTrackIds.value = emptySet()
+    }
+
+    /**
+     * Fetches all albums across the user's library by combining alphabetical and newest listings,
+     * ensuring full coverage without being cut off by the backend default 50-item limit.
+     */
+    suspend fun getAllAlbums(forceRefresh: Boolean = false): List<AlbumDto> {
+        if (!forceRefresh && !cachedAllAlbums.isNullOrEmpty()) {
+            return cachedAllAlbums!!
+        }
+        return try {
+            coroutineScope {
+                val alphaDeferred = async { getAlbums(type = "alphabeticalByName", size = 500) }
+                val newestDeferred = async { getAlbums(type = "newest", size = 500) }
+
+                val alpha = alphaDeferred.await()
+                val newest = newestDeferred.await()
+
+                val combined = (alpha + newest).distinctBy { it.id }
+                if (combined.isNotEmpty()) {
+                    cachedAllAlbums = combined
+                    combined
+                } else {
+                    getAlbums(size = 500)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch all albums, falling back to basic getAlbums", e)
+            getAlbums(size = 500)
+        }
     }
 
     /**

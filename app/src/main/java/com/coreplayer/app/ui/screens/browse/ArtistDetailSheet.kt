@@ -109,22 +109,24 @@ fun ArtistDetailSheet(
     var isCurrentTrackFavorite by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(artist.name) {
+    LaunchedEffect(artist.id, artist.name) {
         isLoading = true
         try {
-            val allAlbums = libraryRepository.getAlbums()
-            val filtered = allAlbums.filter { album ->
-                val albumArtist = cleanArtistName(album.artist)
-                albumArtist.equals(cleanedArtistName, ignoreCase = true) ||
-                    albumArtist.contains(cleanedArtistName, ignoreCase = true) ||
-                    cleanedArtistName.contains(albumArtist, ignoreCase = true)
-            }
-            if (filtered.isNotEmpty()) {
-                albums = filtered
-            } else {
+            var artistAlbums = libraryRepository.getArtistAlbums(artist.id)
+            if (artistAlbums.isEmpty()) {
                 val searchRes = libraryRepository.searchFull(artist.name)
-                albums = searchRes.albums
+                artistAlbums = searchRes.albums
             }
+            if (artistAlbums.isEmpty()) {
+                val allAlbums = libraryRepository.getAllAlbums()
+                artistAlbums = allAlbums.filter { album ->
+                    val albumArtist = cleanArtistName(album.artist)
+                    albumArtist.equals(cleanedArtistName, ignoreCase = true) ||
+                        albumArtist.contains(cleanedArtistName, ignoreCase = true) ||
+                        cleanedArtistName.contains(albumArtist, ignoreCase = true)
+                }
+            }
+            albums = artistAlbums
         } catch (e: Exception) {
             android.util.Log.e("ArtistDetailSheet", "Failed to load artist albums", e)
         } finally {

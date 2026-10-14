@@ -83,7 +83,7 @@ fun BrowseScreen(
         isLoading = true
         try {
             libraryRepository.refreshFavoriteIds()
-            albums = libraryRepository.getAlbums()
+            albums = libraryRepository.getAllAlbums()
             artists = libraryRepository.getArtists()
             // Quick initial populate
             val quickTracks = libraryRepository.getRandomTracks(100)

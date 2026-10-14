@@ -62,16 +62,9 @@ fun TrackDto.toMediaItem(baseUrl: String, codec: String = "auto"): MediaItem {
         "$cleanBaseUrl/api/stream/$id?format=$codec"
     }
 
-    val artworkUriString = coverArt?.let { art ->
-        if (art.startsWith("http://") || art.startsWith("https://")) {
-            art
-        } else if (art.startsWith("/api/")) {
-            "$cleanBaseUrl$art"
-        } else {
-            val cleanId = art.trimStart('/')
-            "$cleanBaseUrl/api/stream/cover/$cleanId?size=512"
-        }
-    }
+    val effectiveCover = coverArt?.takeIf { it.isNotBlank() }
+        ?: albumId?.takeIf { it.isNotBlank() }?.let { "al-$it" }
+    val artworkUriString = com.coreplayer.app.ui.util.resolveCoverUrl(effectiveCover, baseUrl, size = 512)
 
     val metadata = MediaMetadata.Builder()
         .setTitle(title)

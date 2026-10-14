@@ -2,6 +2,7 @@ package com.coreplayer.app.data.api
 
 import com.coreplayer.app.data.model.AlbumDetailResponse
 import com.coreplayer.app.data.model.AlbumDto
+import com.coreplayer.app.data.model.ArtistDetailResponse
 import com.coreplayer.app.data.model.ArtistDto
 import com.coreplayer.app.data.model.FavoriteToggleRequest
 import com.coreplayer.app.data.model.FavoriteToggleResponse
@@ -48,6 +49,11 @@ interface CorePlayerApi {
 
     @GET("api/library/artists")
     suspend fun getArtists(): List<ArtistDto>
+
+    @GET("api/library/artists/{artist_id}")
+    suspend fun getArtist(
+        @Path("artist_id") artistId: String
+    ): ArtistDetailResponse
 
     @GET("api/library/albums")
     suspend fun getAlbums(
