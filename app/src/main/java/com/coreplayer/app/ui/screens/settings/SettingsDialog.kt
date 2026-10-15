@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.coreplayer.app.BuildConfig
 import com.coreplayer.app.ui.theme.DarkBackground
 import com.coreplayer.app.ui.theme.DarkSurface
 import com.coreplayer.app.ui.theme.DarkSurfaceVariant
@@ -495,6 +496,15 @@ fun SettingsDialog(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "Core Player v${BuildConfig.VERSION_NAME}",
+                        fontSize = 12.sp,
+                        color = TextSecondary.copy(alpha = 0.6f),
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    )
 
                     Spacer(modifier = Modifier.height(8.dp))
                 }
