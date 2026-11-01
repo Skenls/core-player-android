@@ -107,6 +107,30 @@ class PlayerStateTest {
     }
 
     @Test
+    fun trackDto_toMediaItem_withOpusCodec_setsEstimateContentLengthAndMimeType() {
+        val track = TrackDto(
+            id = "track-opus-1",
+            title = "Opus Song",
+            artist = "Artist",
+            album = "Album",
+            duration = 180
+        )
+        val baseUrl = "http://localhost:3000"
+
+        val mediaItem = track.toMediaItem(baseUrl, codec = "opus")
+
+        assertEquals("track-opus-1", mediaItem.mediaId)
+        assertEquals(
+            "http://localhost:3000/api/stream/track-opus-1?format=opus&estimateContentLength=true",
+            mediaItem.localConfiguration?.uri?.toString()
+        )
+        assertEquals(
+            androidx.media3.common.MimeTypes.AUDIO_OGG,
+            mediaItem.localConfiguration?.mimeType
+        )
+    }
+
+    @Test
     fun trackDto_toMediaItem_handlesFullCoverArtUrl() {
         val track = TrackDto(
             id = "track-456",

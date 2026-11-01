@@ -45,12 +45,12 @@ class TrackCacheManagerTest {
         )
 
         assertEquals(
-            "http://example.com/api/stream/trk-99?format=mp3",
+            "http://example.com/api/stream/trk-99?format=mp3&estimateContentLength=true",
             manager.getStreamUrl(track, "http://example.com", "mp3")
         )
 
         assertEquals(
-            "https://server.local/api/stream/trk-99?format=flac",
+            "https://server.local/api/stream/trk-99?format=flac&estimateContentLength=true",
             manager.getStreamUrl(track, "https://server.local/", "flac")
         )
     }

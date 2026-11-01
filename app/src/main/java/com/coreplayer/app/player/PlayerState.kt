@@ -59,7 +59,16 @@ fun TrackDto.toMediaItem(baseUrl: String, codec: String = "auto"): MediaItem {
     val streamUri = if (codec.isBlank() || codec == "auto" || codec == "raw") {
         "$cleanBaseUrl/api/stream/$id"
     } else {
-        "$cleanBaseUrl/api/stream/$id?format=$codec"
+        "$cleanBaseUrl/api/stream/$id?format=$codec&estimateContentLength=true"
+    }
+
+    val mimeType = when (codec.lowercase()) {
+        "opus" -> androidx.media3.common.MimeTypes.AUDIO_OGG
+        "ogg" -> androidx.media3.common.MimeTypes.AUDIO_OGG
+        "mp3" -> androidx.media3.common.MimeTypes.AUDIO_MPEG
+        "flac" -> androidx.media3.common.MimeTypes.AUDIO_FLAC
+        "aac" -> androidx.media3.common.MimeTypes.AUDIO_AAC
+        else -> null
     }
 
     val effectiveCover = coverArt?.takeIf { it.isNotBlank() }
@@ -78,6 +87,11 @@ fun TrackDto.toMediaItem(baseUrl: String, codec: String = "auto"): MediaItem {
     return MediaItem.Builder()
         .setMediaId(id)
         .setUri(streamUri)
+        .apply {
+            if (mimeType != null) {
+                setMimeType(mimeType)
+            }
+        }
         .setMediaMetadata(metadata)
         .build()
 }

@@ -324,7 +324,8 @@ open class PlayerControllerManager(
     fun applyCodec(newCodec: String) {
         val p = player ?: return
         val currentTrack = _state.value.currentTrack ?: return
-        val currentPos = p.currentPosition.coerceAtLeast(0L)
+        val servicePos = PlaybackService.instance?.currentPosition ?: 0L
+        val currentPos = maxOf(p.currentPosition, servicePos, _state.value.currentPositionMs).coerceAtLeast(0L)
         val isPlaying = p.isPlaying
 
         val startIndex = currentQueue.indexOfFirst { it.id == currentTrack.id }.coerceAtLeast(0)

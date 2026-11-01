@@ -110,7 +110,7 @@ class TrackCacheManager private constructor(
         return if (codec.isBlank() || codec == "auto" || codec == "raw") {
             "$cleanBaseUrl/api/stream/${track.id}"
         } else {
-            "$cleanBaseUrl/api/stream/${track.id}?format=$codec"
+            "$cleanBaseUrl/api/stream/${track.id}?format=$codec&estimateContentLength=true"
         }
     }
 
