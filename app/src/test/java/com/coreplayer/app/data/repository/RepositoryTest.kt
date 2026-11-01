@@ -130,6 +130,108 @@ class RepositoryTest {
     }
 
     @Test
+    fun lyricsRepository_getLyricsWithRetry_retriesAndSucceedsOnDelayedLyrics() = runTest {
+        // Simulates server returning null/empty lyrics on attempts 1 and 2, then succeeding on attempt 3
+        fakeApi.lyricsProvider = { trackId, count ->
+            if (count < 3) {
+                LyricsResponse(trackId = trackId, lyricsText = null)
+            } else {
+                LyricsResponse(trackId = trackId, lyricsText = "[00:02.00]Hello\n[00:04.00]World")
+            }
+        }
+
+        val lyrics = lyricsRepository.getLyricsWithRetry(
+            trackId = "trk-delayed",
+            maxAttempts = 5,
+            initialDelayMs = 1L
+        )
+
+        assertEquals(3, fakeApi.lyricsCallCount)
+        assertEquals(2, lyrics.size)
+        assertEquals("Hello", lyrics[0].text)
+        assertEquals("World", lyrics[1].text)
+    }
+
+    @Test
+    fun lyricsRepository_getLyricsWithRetry_retriesOnExceptionAndSucceeds() = runTest {
+        // Simulates network/404 exception on attempt 1, succeeding on attempt 2
+        fakeApi.lyricsProvider = { trackId, count ->
+            if (count == 1) {
+                throw java.io.IOException("502 Bad Gateway / Network timeout")
+            } else {
+                LyricsResponse(trackId = trackId, lyricsText = "[00:01.00]Recovered")
+            }
+        }
+
+        val lyrics = lyricsRepository.getLyricsWithRetry(
+            trackId = "trk-error",
+            maxAttempts = 4,
+            initialDelayMs = 1L
+        )
+
+        assertEquals(2, fakeApi.lyricsCallCount)
+        assertEquals(1, lyrics.size)
+        assertEquals("Recovered", lyrics[0].text)
+    }
+
+    @Test
+    fun lyricsRepository_getLyricsWithRetry_exhaustsRetriesWhenAlwaysFails() = runTest {
+        fakeApi.lyricsProvider = { _, _ ->
+            throw java.io.IOException("Persistent failure")
+        }
+
+        var thrown = false
+        try {
+            lyricsRepository.getLyricsWithRetry(
+                trackId = "trk-fail",
+                maxAttempts = 3,
+                initialDelayMs = 1L
+            )
+        } catch (_: java.io.IOException) {
+            thrown = true
+        }
+
+        assertTrue(thrown)
+        assertEquals(3, fakeApi.lyricsCallCount)
+    }
+
+    @Test
+    fun lyricsRepository_getLyricsWithRetry_exhaustsRetriesWhenAlwaysEmpty() = runTest {
+        fakeApi.lyricsProvider = { trackId, _ ->
+            LyricsResponse(trackId = trackId, lyricsText = null)
+        }
+
+        val lyrics = lyricsRepository.getLyricsWithRetry(
+            trackId = "trk-empty",
+            maxAttempts = 3,
+            initialDelayMs = 1L
+        )
+
+        assertTrue(lyrics.isEmpty())
+        assertEquals(3, fakeApi.lyricsCallCount)
+    }
+
+    @Test
+    fun lyricsRepository_getLyricsWithRetry_returnsCachedLyricsWithoutApiCall() = runTest {
+        val first = lyricsRepository.getLyricsWithRetry(
+            trackId = "trk-cache",
+            maxAttempts = 3,
+            initialDelayMs = 1L
+        )
+        assertEquals(1, fakeApi.lyricsCallCount)
+        assertEquals(2, first.size)
+
+        // Second call should hit in-memory cache and not call api again
+        val second = lyricsRepository.getLyricsWithRetry(
+            trackId = "trk-cache",
+            maxAttempts = 3,
+            initialDelayMs = 1L
+        )
+        assertEquals(1, fakeApi.lyricsCallCount)
+        assertEquals(first, second)
+    }
+
+    @Test
     fun libraryRepository_search_callsApiSearch() = runTest {
         val results = libraryRepository.search("Karma")
         assertEquals(1, results.size)
@@ -256,6 +358,9 @@ class RepositoryTest {
             return com.coreplayer.app.data.model.GenericMessageResponse(message = "Reordered")
         }
 
+        var lyricsCallCount = 0
+        var lyricsProvider: ((trackId: String, callCount: Int) -> LyricsResponse)? = null
+
         override suspend fun getLyrics(
             trackId: String,
             artist: String?,
@@ -263,6 +368,11 @@ class RepositoryTest {
             album: String?,
             duration: Int?
         ): LyricsResponse {
+            lyricsCallCount++
+            val provider = lyricsProvider
+            if (provider != null) {
+                return provider(trackId, lyricsCallCount)
+            }
             return LyricsResponse(
                 trackId = trackId,
                 lyricsText = "[00:05.00]Line one\n[00:10.00]Line two",

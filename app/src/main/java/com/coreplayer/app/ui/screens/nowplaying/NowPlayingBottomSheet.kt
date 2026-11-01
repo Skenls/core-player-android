@@ -52,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -124,6 +125,7 @@ fun NowPlayingBottomSheet(
     lyrics: List<LyricLine> = emptyList(),
     isLyricsLoading: Boolean = false,
     lyricsError: String? = null,
+    onRetryLyrics: (() -> Unit)? = null,
     onAddToPlaylist: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -150,6 +152,7 @@ fun NowPlayingBottomSheet(
             lyrics = lyrics,
             isLyricsLoading = isLyricsLoading,
             lyricsError = lyricsError,
+            onRetryLyrics = onRetryLyrics,
             onAddToPlaylist = onAddToPlaylist,
             onDismiss = onDismiss,
             baseUrl = baseUrl
@@ -174,22 +177,30 @@ fun NowPlayingBottomSheet(
     var lyrics by remember { mutableStateOf<List<LyricLine>>(emptyList()) }
     var isLyricsLoading by remember { mutableStateOf(false) }
     var lyricsError by remember { mutableStateOf<String?>(null) }
+    var retryTrigger by remember { mutableIntStateOf(0) }
 
     val currentTrack = playerState.currentTrack
 
-    // Automatically fetch synchronized lyrics when current track changes
-    LaunchedEffect(currentTrack?.id) {
+    // Automatically fetch synchronized lyrics when current track changes or on manual retry
+    LaunchedEffect(currentTrack?.id, retryTrigger) {
         if (currentTrack != null && lyricsRepository != null) {
             isLyricsLoading = true
             lyricsError = null
             try {
-                lyrics = lyricsRepository.getLyrics(
+                val result = lyricsRepository.getLyricsWithRetry(
                     trackId = currentTrack.id,
                     artist = currentTrack.artist.ifBlank { null },
                     title = currentTrack.title.ifBlank { null },
                     album = currentTrack.album.ifBlank { null },
                     duration = if (currentTrack.duration > 0) currentTrack.duration else null
                 )
+                if (result.isNotEmpty()) {
+                    lyrics = result
+                    lyricsError = null
+                } else {
+                    lyrics = emptyList()
+                    lyricsError = "Текст песни недоступен"
+                }
             } catch (e: Exception) {
                 lyrics = emptyList()
                 lyricsError = "Не удалось загрузить текст песни"
@@ -199,6 +210,7 @@ fun NowPlayingBottomSheet(
         } else {
             lyrics = emptyList()
             isLyricsLoading = false
+            lyricsError = null
         }
     }
 
@@ -215,6 +227,7 @@ fun NowPlayingBottomSheet(
         lyrics = lyrics,
         isLyricsLoading = isLyricsLoading,
         lyricsError = lyricsError,
+        onRetryLyrics = { retryTrigger++ },
         onAddToPlaylist = onAddToPlaylist,
         onDismiss = onDismiss,
         baseUrl = playerController.baseUrl,
@@ -240,6 +253,7 @@ fun NowPlayingContent(
     lyrics: List<LyricLine> = emptyList(),
     isLyricsLoading: Boolean = false,
     lyricsError: String? = null,
+    onRetryLyrics: (() -> Unit)? = null,
     onAddToPlaylist: (() -> Unit)? = null,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -312,6 +326,7 @@ fun NowPlayingContent(
                                 onSeekTo = onSeekTo,
                                 isLoading = isLyricsLoading,
                                 errorMessage = lyricsError,
+                                onRetry = onRetryLyrics,
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
@@ -430,6 +445,7 @@ fun NowPlayingContent(
                                 onSeekTo = onSeekTo,
                                 isLoading = isLyricsLoading,
                                 errorMessage = lyricsError,
+                                onRetry = onRetryLyrics,
                                 modifier = Modifier.fillMaxSize()
                             )
                         } else {
