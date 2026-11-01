@@ -12,8 +12,8 @@ android {
         applicationId = "com.coreplayer.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.2.2-b"
+        versionCode = 5
+        versionName = "0.2.3-b"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
