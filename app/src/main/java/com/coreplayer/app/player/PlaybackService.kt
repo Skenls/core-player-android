@@ -41,10 +41,47 @@ class PlaybackService : MediaSessionService() {
     private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var crossfadeJob: Job? = null
 
+    private var audioManager: android.media.AudioManager? = null
+    private var audioFocusRequest: android.media.AudioFocusRequest? = null
+    private var hasAudioFocus = false
+
+    private val audioFocusChangeListener = android.media.AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            android.media.AudioManager.AUDIOFOCUS_LOSS,
+            android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                hasAudioFocus = false
+                CorePlayerApp.instance.playerController.pause()
+            }
+            android.media.AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                try {
+                    if (::activePlayer.isInitialized) activePlayer.volume = 0.2f
+                } catch (_: Exception) {}
+            }
+            android.media.AudioManager.AUDIOFOCUS_GAIN -> {
+                hasAudioFocus = true
+                try {
+                    if (::activePlayer.isInitialized) activePlayer.volume = 1.0f
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
+    private val becomingNoisyReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+            if (intent?.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                CorePlayerApp.instance.playerController.pause()
+            }
+        }
+    }
+
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
         instance = this
+
+        audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
+        val filter = android.content.IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        registerReceiver(becomingNoisyReceiver, filter)
 
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
@@ -71,14 +108,14 @@ class PlaybackService : MediaSessionService() {
 
         primaryPlayer = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
-            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
-            .setHandleAudioBecomingNoisy(true)
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ false)
+            .setHandleAudioBecomingNoisy(false)
             .build()
 
         secondaryPlayer = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
-            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
-            .setHandleAudioBecomingNoisy(true)
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ false)
+            .setHandleAudioBecomingNoisy(false)
             .build()
 
         activePlayer = primaryPlayer
@@ -143,12 +180,53 @@ class PlaybackService : MediaSessionService() {
      * The outgoing track's volume ramps down while the incoming track's volume ramps up,
      * providing an overlapping crossfade without silence.
      */
+    fun requestAudioFocus(): Boolean {
+        if (hasAudioFocus) return true
+        val am = audioManager ?: return true
+        val result = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val playbackAttributes = android.media.AudioAttributes.Builder()
+                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            val request = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(playbackAttributes)
+                .setAcceptsDelayedFocusGain(false)
+                .setOnAudioFocusChangeListener(audioFocusChangeListener)
+                .build()
+            audioFocusRequest = request
+            am.requestAudioFocus(request)
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(
+                audioFocusChangeListener,
+                android.media.AudioManager.STREAM_MUSIC,
+                android.media.AudioManager.AUDIOFOCUS_GAIN
+            )
+        }
+        hasAudioFocus = (result == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+        return hasAudioFocus
+    }
+
+    fun abandonAudioFocus() {
+        if (!hasAudioFocus) return
+        val am = audioManager ?: return
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { am.abandonAudioFocusRequest(it) }
+            audioFocusRequest = null
+        } else {
+            @Suppress("DEPRECATION")
+            am.abandonAudioFocus(audioFocusChangeListener)
+        }
+        hasAudioFocus = false
+    }
+
     fun crossfadeTo(
         mediaItems: List<MediaItem>,
         startIndex: Int,
         durationMs: Long = 3500L,
         onCompleted: (() -> Unit)? = null
     ) {
+        requestAudioFocus()
         crossfadeJob?.cancel()
 
         val incoming = inactivePlayer
@@ -194,6 +272,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        try { unregisterReceiver(becomingNoisyReceiver) } catch (_: Exception) {}
+        abandonAudioFocus()
         serviceScope.cancel()
         crossfadeJob?.cancel()
         mediaSession?.run {

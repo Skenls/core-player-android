@@ -72,7 +72,16 @@ open class PlayerControllerManager(
         override fun onPlaybackStateChanged(playbackState: Int) {
             val isBuffering = playbackState == Player.STATE_BUFFERING
             val p = player
-            val duration = if (p != null && p.duration > 0L) p.duration else _state.value.durationMs
+            val track = _state.value.currentTrack
+            val metadataDurMs = (track?.duration?.toLong()?.times(1000) ?: 0L).coerceAtLeast(0L)
+            val pDur = if (p != null && p.duration > 0L) p.duration else 0L
+            val duration = if (metadataDurMs > 0L) {
+                if (pDur >= metadataDurMs - 5000L) pDur else metadataDurMs
+            } else if (pDur > 0L) {
+                pDur
+            } else {
+                _state.value.durationMs
+            }
             _state.update {
                 it.copy(
                     isBuffering = isBuffering,
@@ -184,10 +193,14 @@ open class PlayerControllerManager(
         }
 
         val isBuffering = p.playbackState == Player.STATE_BUFFERING
-        val duration = if (p.duration > 0L) {
-            p.duration
+        val metadataDurMs = (track?.duration?.toLong()?.times(1000) ?: 0L).coerceAtLeast(0L)
+        val pDur = if (p.duration > 0L) p.duration else 0L
+        val duration = if (metadataDurMs > 0L) {
+            if (pDur >= metadataDurMs - 5000L) pDur else metadataDurMs
+        } else if (pDur > 0L) {
+            pDur
         } else {
-            (track?.duration?.toLong()?.times(1000) ?: 0L).coerceAtLeast(0L)
+            0L
         }
         val position = p.currentPosition.coerceAtLeast(0L)
 
@@ -215,7 +228,15 @@ open class PlayerControllerManager(
                 if (isPlaying) {
                     val pos = (if (svc != null) svc.currentPosition else p?.currentPosition ?: 0L).coerceAtLeast(0L)
                     val rawDur = if (svc != null && svc.duration > 0L) svc.duration else p?.duration ?: 0L
-                    val dur = if (rawDur > 0L) rawDur else _state.value.durationMs
+                    val track = _state.value.currentTrack
+                    val metadataDurMs = (track?.duration?.toLong()?.times(1000) ?: 0L).coerceAtLeast(0L)
+                    val dur = if (metadataDurMs > 0L) {
+                        if (rawDur >= metadataDurMs - 5000L) rawDur else metadataDurMs
+                    } else if (rawDur > 0L) {
+                        rawDur
+                    } else {
+                        _state.value.durationMs
+                    }
                     _state.update { it.copy(currentPositionMs = pos, durationMs = dur) }
 
                     val isCrossfade = try { com.coreplayer.app.CorePlayerApp.instance.crossfadeEnabled } catch (_: Exception) { true }
@@ -303,6 +324,7 @@ open class PlayerControllerManager(
                 shuffleModeEnabled = _state.value.shuffleModeEnabled
                 setMediaItems(mediaItems, startIndex, 0L)
                 prepare()
+                PlaybackService.instance?.requestAudioFocus()
                 play()
             }
 
@@ -361,12 +383,14 @@ open class PlayerControllerManager(
             p.pause()
             _state.update { it.copy(isPlaying = false) }
         } else {
+            PlaybackService.instance?.requestAudioFocus()
             p.play()
             _state.update { it.copy(isPlaying = true) }
         }
     }
 
     fun play() {
+        PlaybackService.instance?.requestAudioFocus()
         player?.play()
         _state.update { it.copy(isPlaying = true) }
     }
