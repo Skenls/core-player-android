@@ -77,8 +77,8 @@ class PlaybackService : MediaSessionService() {
 
         secondaryPlayer = ExoPlayer.Builder(this, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
-            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ false)
-            .setHandleAudioBecomingNoisy(false)
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
+            .setHandleAudioBecomingNoisy(true)
             .build()
 
         activePlayer = primaryPlayer
@@ -178,6 +178,7 @@ class PlaybackService : MediaSessionService() {
                 outgoing.volume = (1f - frac).coerceAtLeast(0f)
             }
             outgoing.stop()
+            outgoing.clearMediaItems()
             outgoing.volume = 1f
             incoming.volume = 1f
             onCompleted?.invoke()

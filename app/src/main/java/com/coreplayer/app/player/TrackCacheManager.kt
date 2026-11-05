@@ -177,11 +177,27 @@ class TrackCacheManager private constructor(
         } catch (_: Exception) {}
         currentWriter = null
 
+        val currentUrl = getStreamUrl(currentTrack, baseUrl, codec)
+        // If current track is only partially cached, clear incomplete cache so ExoPlayer reads
+        // a clean, continuous stream from byte 0 upstream rather than encountering an Ogg serial
+        // number mismatch or HTTP 416 Range error at the incomplete cache boundary.
+        val isCurrentFullyCached = try {
+            val meta = cache.getContentMetadata(currentUrl)
+            val contentLength = ContentMetadata.getContentLength(meta)
+            contentLength > 0 && cache.isCached(currentUrl, 0, contentLength)
+        } catch (_: Exception) { false }
+
+        if (!isCurrentFullyCached) {
+            try {
+                cache.removeResource(currentUrl)
+                cachedUrls.remove(currentUrl)
+            } catch (_: Exception) {}
+        }
+
         // Start two-stage background caching pipeline
         cachingJob = scope.launch {
             try {
                 // Stage 1: Pre-cache current track completely
-                val currentUrl = getStreamUrl(currentTrack, baseUrl, codec)
                 cacheTrack(currentUrl)
 
                 // Stage 2: Pre-cache next track completely once current is cached
@@ -265,10 +281,15 @@ class TrackCacheManager private constructor(
         val urlsToEvict = listOf(
             "$cleanBaseUrl/api/stream/$trackId",
             "$cleanBaseUrl/api/stream/$trackId?format=$codec",
+            "$cleanBaseUrl/api/stream/$trackId?format=$codec&estimateContentLength=true",
             "$cleanBaseUrl/api/stream/$trackId?format=mp3",
+            "$cleanBaseUrl/api/stream/$trackId?format=mp3&estimateContentLength=true",
             "$cleanBaseUrl/api/stream/$trackId?format=flac",
+            "$cleanBaseUrl/api/stream/$trackId?format=flac&estimateContentLength=true",
             "$cleanBaseUrl/api/stream/$trackId?format=aac",
-            "$cleanBaseUrl/api/stream/$trackId?format=opus"
+            "$cleanBaseUrl/api/stream/$trackId?format=aac&estimateContentLength=true",
+            "$cleanBaseUrl/api/stream/$trackId?format=opus",
+            "$cleanBaseUrl/api/stream/$trackId?format=opus&estimateContentLength=true"
         )
         for (url in urlsToEvict) {
             try {

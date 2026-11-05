@@ -379,6 +379,32 @@ class PlayerControllerManagerTest {
         listenerSlot.captured.onPlaybackStateChanged(Player.STATE_ENDED)
 
         verify { mockPlayer.seekToNextMediaItem() }
+        verify { mockPlayer.play() }
+    }
+
+    @Test
+    fun autoMediaItemTransition_triggersPlay() {
+        val listenerSlot = slot<Player.Listener>()
+        every { mockPlayer.addListener(capture(listenerSlot)) } returns Unit
+
+        val manager = createManager()
+        manager.attachPlayer(mockPlayer)
+
+        val track1 = TrackDto(id = "trk-1", title = "Song 1")
+        val track2 = TrackDto(id = "trk-2", title = "Song 2")
+        val queue = listOf(track1, track2)
+
+        manager.playTrack(track1, queue)
+
+        val nextMediaItem = MediaItem.Builder()
+            .setMediaId("trk-2")
+            .build()
+
+        // Simulate automatic transition to next track
+        listenerSlot.captured.onMediaItemTransition(nextMediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)
+
+        assertEquals("trk-2", manager.state.value.currentTrack?.id)
+        verify { mockPlayer.play() }
     }
 
     @Test

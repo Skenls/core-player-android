@@ -44,10 +44,34 @@ class CorePlayerApp : Application(), ImageLoaderFactory {
                         range.endsWith("-") -> "${range}2147483647"
                         else -> range
                     }
-                    if (newRange != range) {
-                        chain.proceed(request.newBuilder().header("Range", newRange).build())
+                    val initialRequest = if (newRange != range) {
+                        request.newBuilder().header("Range", newRange).build()
                     } else {
-                        chain.proceed(request)
+                        request
+                    }
+                    val response = chain.proceed(initialRequest)
+                    if (response.code == 416) {
+                        // Range Not Satisfiable: Requested offset is beyond stream EOF (due to estimateContentLength mismatch).
+                        // Fall back to clean stream from byte 0 to prevent fatal player exception
+                        response.close()
+                        val retryRequest = request.newBuilder()
+                            .header("Range", "bytes=0-2147483647")
+                            .build()
+                        val retryResponse = chain.proceed(retryRequest)
+                        if (retryResponse.isSuccessful) {
+                            retryResponse
+                        } else {
+                            retryResponse.close()
+                            okhttp3.Response.Builder()
+                                .request(request)
+                                .protocol(okhttp3.Protocol.HTTP_1_1)
+                                .code(200)
+                                .message("OK")
+                                .body(okhttp3.ResponseBody.create(null, ByteArray(0)))
+                                .build()
+                        }
+                    } else {
+                        response
                     }
                 } else {
                     chain.proceed(request)

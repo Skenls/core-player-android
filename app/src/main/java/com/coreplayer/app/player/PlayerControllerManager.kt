@@ -49,6 +49,9 @@ open class PlayerControllerManager(
                 )
             }
             if (track != null) {
+                if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                    player?.play()
+                }
                 val next = getNextTrackInQueue()
                 val codec = try { com.coreplayer.app.CorePlayerApp.instance.audioCodec } catch (_: Exception) { "auto" }
                 try {
@@ -113,7 +116,7 @@ open class PlayerControllerManager(
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
             android.util.Log.w(TAG, "Playback error: ${error.errorCodeName}, attempting auto-reconnect", error)
             coroutineScope.launch {
-                delay(2000L)
+                delay(1000L)
                 val p = player ?: return@launch
                 val cur = _state.value.currentTrack
                 if (cur != null) {
@@ -474,6 +477,7 @@ open class PlayerControllerManager(
                 }
             }
             p.seekToNextMediaItem()
+            p.play()
             return
         }
 
@@ -566,6 +570,7 @@ open class PlayerControllerManager(
                 }
             }
             p.seekToPreviousMediaItem()
+            p.play()
             return
         }
 
